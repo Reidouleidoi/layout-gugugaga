@@ -1,0 +1,21 @@
+# Herdr auto-generated runtime & type files
+**/gpui-kit.d.ts
+**/jsconfig.json
+data/
+
+# Temp & OS files
+tmp/
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.env
+.env.*
+
+# Local sprite guide & helper scripts
+MEME-SPRITE-GUIDE.md
+tools/
+
+# 可选本地映射（不随仓库分发；缺失时模组按名称哈希自动分配）
+mods/gugugaga-agents/jobs.json
+mods/gugugaga-spaces/places.json

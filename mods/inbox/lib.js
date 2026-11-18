@@ -1,0 +1,243 @@
+// 收件匣的純函式：不碰 herdr / gpui-kit，可以被 node 直接載入測試。
+// 這裡只做字串與資料的處理；跑指令、畫畫面都在 main.js。
+//
+// 平台：macOS 走 BSD 指令（find / stat -f / open / cp -n / trash），
+// Windows 走 PowerShell（本機改寫，2026-08 加在 Herdr 0.1.12 上）。
+// 每個指令建構函式都收 platform，main.js 從 window().platform 傳進來。
+
+export const MAX_ITEMS = 200;
+export const MAX_THUMB_BYTES = 20 * 1024 * 1024;
+
+const THUMB_PREFIX = "data/inbox/files/";
+const WINDOWS = "windows";
+const POWERSHELL = "powershell";
+
+// 副檔名白名單：只有這幾種可以列出來、可以 open。
+const KINDS = {
+  png: "image",
+  jpg: "image",
+  jpeg: "image",
+  webp: "image",
+  gif: "image",
+  mp4: "video",
+  mov: "video",
+  pdf: "pdf",
+  md: "text",
+};
+
+export const MAX_DESKTOP_TRIES = 20;
+
+function isWindows(platform) {
+  return platform === WINDOWS;
+}
+
+// PowerShell 單引號字串：只跳脫單引號，其餘原樣（不用雙引號，免得 $ 被展開）。
+function psQuote(text) {
+  return `'${String(text).replace(/'/g, "''")}'`;
+}
+
+function ps(script) {
+  return { cmd: POWERSHELL, args: ["-NoProfile", "-NonInteractive", "-Command", script] };
+}
+
+// 檔名一律當成單一檔名看待：不能有路徑、不能是隱藏檔。
+function isPlainName(name) {
+  return (
+    typeof name === "string" &&
+    name.length > 0 &&
+    name !== "." &&
+    name !== ".." &&
+    !name.includes("/") &&
+    !name.includes("\\") &&
+    !name.includes("\0") &&
+    !name.startsWith(".")
+  );
+}
+
+// 資料夾結尾的斜線不影響比對，其他一律原樣。
+function prefixOf(dir) {
+  const s = typeof dir === "string" ? dir : "";
+  const trimmed = s.replace(/\/+$/, "");
+  return trimmed === "" ? "/" : trimmed + "/";
+}
+
+export function kindOf(name) {
+  if (!isPlainName(name)) return null;
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0 || dot === name.length - 1) return null;
+  const ext = name.slice(dot + 1).toLowerCase();
+  const kind = KINDS[ext];
+  return typeof kind === "string" ? kind : null;
+}
+
+export function isAllowedName(name) {
+  return kindOf(name) !== null;
+}
+
+// 只有收件匣第一層的白名單檔名才算數；回傳檔名，不合格回 null。
+function inboxName(path, dir) {
+  const prefix = prefixOf(dir);
+  if (typeof path !== "string" || !path.startsWith(prefix)) return null;
+  const name = path.slice(prefix.length);
+  if (name.includes("/") || name.includes("\\")) return null;
+  return isAllowedName(name) ? name : null;
+}
+
+const byNewest = (a, b) =>
+  b.mtime - a.mtime || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
+function finish(items) {
+  items.sort(byNewest);
+  return items.slice(0, MAX_ITEMS);
+}
+
+function lines(stdout) {
+  return String(stdout ?? "").split("\n");
+}
+
+export function mkdirCommand(dir, platform) {
+  if (isWindows(platform)) {
+    // New-Item 沒有 -LiteralPath，直接用 .NET，路徑不會被萬用字元解讀。
+    return ps(`[void][System.IO.Directory]::CreateDirectory(${psQuote(dir)})`);
+  }
+  return { cmd: "/bin/mkdir", args: ["-p", dir] };
+}
+
+// macOS：find + stat 印「mtime size 完整路徑」。
+// Windows：Get-ChildItem 印「mtime size 檔名」，路徑在 JS 這邊接。
+export function listCommand(dir, platform) {
+  if (isWindows(platform)) {
+    return ps(
+      `Get-ChildItem -LiteralPath ${psQuote(dir)} -File -ErrorAction Stop | ForEach-Object { '{0} {1} {2}' -f [int]([datetimeoffset]$_.LastWriteTimeUtc).ToUnixTimeSeconds(), $_.Length, $_.Name }`,
+    );
+  }
+  return {
+    cmd: "/usr/bin/find",
+    args: [
+      dir, "-mindepth", "1", "-maxdepth", "1", "-type", "f",
+      "-exec", "/usr/bin/stat", "-f", "%m %z %N", "{}", "+",
+    ],
+  };
+}
+
+// find + stat 的輸出格式是每行「mtime size 路徑」。
+export function parseListing(stdout, dir, platform) {
+  const items = [];
+  if (isWindows(platform)) {
+    for (const raw of lines(stdout)) {
+      const text = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
+      const m = /^(\d+) (\d+) (.+)$/.exec(text);
+      if (!m) continue;
+      const name = m[3];
+      if (!isAllowedName(name)) continue;
+      items.push({
+        name,
+        path: `${prefixOf(dir)}${name}`,
+        mtime: Number(m[1]),
+        size: Number(m[2]),
+        kind: kindOf(name),
+      });
+    }
+    return finish(items);
+  }
+  const prefix = prefixOf(dir);
+  for (const raw of lines(stdout)) {
+    const text = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
+    const m = /^(\d+) (\d+) (.+)$/.exec(text);
+    if (!m) continue;
+    const path = m[3];
+    if (!path.startsWith(prefix)) continue;
+    const name = path.slice(prefix.length);
+    if (!isAllowedName(name)) continue;
+    items.push({
+      name,
+      path,
+      mtime: Number(m[1]),
+      size: Number(m[2]),
+      kind: kindOf(name),
+    });
+  }
+  return finish(items);
+}
+
+// macOS 的 %HT 只問型別，不跟隨符號連結；Windows 用 ReparsePoint 判斷，兩邊都印同一句話。
+export function statCommand(path, platform) {
+  if (isWindows(platform)) {
+    return ps(
+      `$f = Get-Item -LiteralPath ${psQuote(path)} -Force -ErrorAction Stop; if ($f.Attributes -band [IO.FileAttributes]::ReparsePoint) { 'Link' } else { 'Regular File' }`,
+    );
+  }
+  return { cmd: "/usr/bin/stat", args: ["-f", "%HT", path] };
+}
+
+export function isRegularFile(stdout) {
+  return String(stdout ?? "").trim() === "Regular File";
+}
+
+// 只有收件匣第一層的白名單檔名可以 open。
+export function openCommand(path, dir, platform) {
+  if (inboxName(path, dir) === null) return null;
+  if (isWindows(platform)) {
+    return ps(`Invoke-Item -LiteralPath ${psQuote(path)} -ErrorAction Stop`);
+  }
+  return { cmd: "/usr/bin/open", args: [path] };
+}
+
+// 複製到桌面的目的檔名：原名先試，撞名照 Finder 的習慣加「 2」「 3」。
+export function desktopCandidates(name) {
+  if (!isAllowedName(name)) return [];
+  const dot = name.lastIndexOf(".");
+  const stem = name.slice(0, dot);
+  const ext = name.slice(dot);
+  const out = [name];
+  for (let n = 2; n <= MAX_DESKTOP_TRIES; n += 1) out.push(`${stem} ${n}${ext}`);
+  return out;
+}
+
+// cp -n 不覆蓋既有檔案（撞名時 exit 1，換下一個候選名）。
+// Windows 的 Copy-Item 預設會覆蓋，所以先 Test-Path，撞名一樣 exit 1。
+export function copyCommand(path, dir, destDir, name, platform) {
+  if (inboxName(path, dir) === null) return null;
+  if (!isAllowedName(name)) return null;
+  if (isWindows(platform)) {
+    if (typeof destDir !== "string" || !/^[A-Za-z]:[\\/]/.test(destDir)) return null;
+    const dest = `${destDir.replace(/\\/g, "/").replace(/\/+$/, "")}/${name}`;
+    return ps(
+      `if (Test-Path -LiteralPath ${psQuote(dest)}) { exit 1 } else { Copy-Item -LiteralPath ${psQuote(path)} -Destination ${psQuote(dest)} -ErrorAction Stop }`,
+    );
+  }
+  if (typeof destDir !== "string" || !destDir.startsWith("/")) return null;
+  return { cmd: "/bin/cp", args: ["-n", "--", path, prefixOf(destDir) + name] };
+}
+
+// 丟到垃圾桶：macOS 用內建 trash（可救回），Windows 走資源回收筒（一樣可救回）。
+export function trashCommand(path, dir, platform) {
+  if (inboxName(path, dir) === null) return null;
+  if (isWindows(platform)) {
+    return ps(
+      `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(${psQuote(path)},'OnlyErrorDialogs','SendToRecycleBin')`,
+    );
+  }
+  return { cmd: "/usr/bin/trash", args: [path] };
+}
+
+// image() 只讀 Herdr 家目錄的相對路徑，所以回傳 data/inbox/files/<檔名>。
+export function thumbSource(item) {
+  if (!item || item.kind !== "image") return null;
+  if (kindOf(item.name) !== "image") return null;
+  const size = item.size;
+  if (typeof size !== "number" || !Number.isFinite(size)) return null;
+  if (size < 0 || size > MAX_THUMB_BYTES) return null;
+  return THUMB_PREFIX + item.name;
+}
+
+export function formatSize(bytes) {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = Number(bytes);
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return unit === 0 ? `${value} B` : `${value.toFixed(1)} ${units[unit]}`;
+}
