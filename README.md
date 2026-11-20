@@ -13,10 +13,16 @@
 ## ✨ 主题亮点与像素图鉴
 
 - **🌌 `gugugaga-ice` 极简现代冰夜主题**：低视觉疲劳的深海冰蓝基底，搭配高对比像素状态灯与金色选中高亮条，久看不累。
-- **🐧 咕咕嘎嘎三态动态精灵 (`gugugaga-agents`)**：内置 7 套 `256×256` 像素头像与 21 枚 `144×192` 三态透明 GIF，随 Agent 实时状态切换动画；卡片 ≥3 张时自动**双列左右错位站位**，立绘与文字零遮挡。
-- **🌿 子代理像素树形连线（小队梯）**：自动识别 `hc run` 启动的子代理，以 2D 像素树干与折叠徽章（`▾/▸ 数量`）挂载在父卡片下方，告别满屏卡片堆叠。
+- **🐧 咕咕嘎嘎三态动态精灵与「三权分立」展示卡 (`gugugaga-agents`)**：内置 7 套 `256×256` 像素头像与 21 枚 `144×192` 三态透明 GIF；320px 宽侧栏下重绘为统一展示卡（**CLI 皮肤 × Model 立绘 × 运行状态**），涵盖 9 种 CLI / 10 套直角像素边框流派、8 大模型家族半身立绘与 9 枚 `12×12` 像素厂家 Logo，支持左键拖拽重排卡片。
+- **🌿 子代理像素树形连线（小队梯）**：自动识别 `hc run` 启动的子代理，以 2D 像素树干与折叠徽章（`▾/▸ 数量`）挂载在父卡片下方（最多 3 层缩排），告别满屏卡片堆叠。
 - **🏰 极地冰屋建筑与空间大纲树 (`gugugaga-spaces`)**：4 座像素描边极地建筑（冰屋 `igloo`、灯塔 `lighthouse`、鱼铺 `fishshop`、冰山 `iceberg`，源图 160×160、界面内渲染 42×42），配合多机器节点像素大纲树线与折叠控制。
-- **🗂️ 全链路像素 UI 同步 (`gugugaga-tabs` / `gugugaga-toast` / `inbox`)**：顶部像素标签栏、RPG 铭牌通知弹窗（支持一键复制登录命令），以及完整适配 Windows（兼容 OneDrive 桌面路径与回收站）的跨平台收件箱。
+- **🗂️ 全链路像素 UI 同步 (`gugugaga-tabs` / `gugugaga-toast` / `inbox`)**：顶部像素标签栏、RPG 铭牌通知弹窗（同步支持全部 9 种 CLI 像素徽章，支持一键复制登录命令），以及完整适配 Windows（兼容 OneDrive 桌面路径与回收站）的跨平台收件箱。
+
+### 🃏 Party 展示卡总览与子代理树（v5 实机截图）
+
+| CLI 皮肤 × 模型娘 × 四态组合总览 (`Claude / Codex / OpenCode / Gemini / Qwen / Kimi`) | Hermes / 咕咕嘎嘎兜底 / Pi 与 2 层子代理树 |
+| :---: | :---: |
+| ![Party Cards Overview](layouts/preview-party-cards.png) | ![Party Hermes and Subagents](layouts/preview-party-subagents.png) |
 
 ### 🐧 咕咕嘎嘎（`gugugaga`）全套 7 组三态动图与头像预览
 
@@ -65,6 +71,15 @@ herdr-app do layout.switch '{"name":"gugugaga"}'
 
 ## 📅 更新内容 (Changelog)
 
+### `2026-11-20`
+- **侧栏拓宽至 320px**：更新 `layouts/gugugaga.json` 与 `gugugaga-chrome` 折叠恢复默认宽度（268px → 320px），并放宽 `gugugaga-spaces` 空间名最大宽度，长名称显示更完整。
+- **Party 展示卡重构（v5 定稿：`gugugaga-agents`）**：从旧版 64px 双列错位重构为统一展示卡，采用**「CLI 皮肤 × Model 立绘 × 运行状态」三权分立**设计：
+  - **9 种 CLI / 10 套直角像素边框流派**（`ring` / `dashed` / `double` / `ornate` / `solid` / `hairline`）：Default 态分级压暗约 35%–45% 退居背景，`Focused` / `Blocked` 高对比跳脱；
+  - **8 大模型家族立绘与 9 枚 `12×12` 像素厂家 Logo**（`art/models/*.png`、`art/vendors/*.svg`）：新增 `IDLE` 统一深冰夜压暗幕、加宽左向羽化 Scrim、立绘下移避让状态扣，并以咕咕嘎嘎企鹅妹（`gugugaga.png`）作为未知模型兜底立绘；
+  - **信息层级与极简托架**：思考强度（Effort）独立移至模型名下方（5 格 `3×4` 像素刻度 + 低调等级字 + 可选自定义会话副标）；Space 极地建筑改为名片底边齐平方形挖槽；左侧企鹅改为脚底 `━━┓┗━━` 阶梯托架直连名片左下角 + 无框 `#Tab`；
+  - **交互与子代理扩展**：支持左键拖拽重排卡片（`localStorage` 持久化 `agents.order`），子代理树扩展支持最多 3 层缩排。
+- **全端 CLI 徽章同步**：`gugugaga-tabs` 与 `gugugaga-toast` 同步补齐并统一全部 9 种 CLI 像素徽章（含 `Hermes`、`Qwen`、`Kimi`）与配色。
+
 ### `2026-11-18`
 - **独立为 `layout-gugugaga` 仓库**：精简剥离旧版冗余资源，聚焦「Gugugaga 冰夜像素风」单一完整主题包，全部组件统一命名为 `gugugaga-*`。
 - **推出 `gugugaga-ice` 主题与全套三态像素池**：配套 7 张 `256×256` 透明头像与 21 个 `144×192` 三态 GIF（`r` 待机 / `w` 工作中 / `b` 阻塞），支持目录热监听与按终端/标签独立缓存。
@@ -90,15 +105,17 @@ layout-gugugaga/
 ├── layouts/
 │   ├── gugugaga.json            # 主布局定义（引用 gugugaga-ice 主题与各槽位 mod）
 │   ├── gugugaga.png             # 布局选择器缩略图
-│   └── preview-gugugaga.png     # README 主预览图
+│   ├── preview-gugugaga.png     # README 主预览图
+│   ├── preview-party-cards.png  # Party 多 CLI × 模型娘组合总览图
+│   └── preview-party-subagents.png # Party Hermes / 兜底企鹅 / 子代理树预览图
 ├── themes/
 │   └── gugugaga-ice.json        # 极简现代冰夜主题色板
 └── mods/
     ├── gugugaga-chrome/         # 侧栏骨架、底图 (sidebar-gugugaga.png) 与通用像素图标
     ├── gugugaga-spaces/         # 左上：机器分组大纲树 + 4 座极地建筑 (art/gugugaga/*.png)
-    ├── gugugaga-agents/         # 左下：队伍卡片、子代理树、7 枚 Agent 徽章与三态精灵池
-    ├── gugugaga-tabs/           # 顶部：像素风工作区标签栏与自定义窗口控制键
-    ├── gugugaga-toast/          # 浮层：RPG 像素铭牌通知弹窗
+    ├── gugugaga-agents/         # 左下：三权分立展示卡、3 层子代理树、9 种 CLI 皮肤、8 模型立绘与三态精灵池
+    ├── gugugaga-tabs/           # 顶部：像素风工作区标签栏（9 种 CLI 徽章）与自定义窗口控制键
+    ├── gugugaga-toast/          # 浮层：RPG 像素铭牌通知弹窗（9 种 CLI 徽章）
     └── inbox/                   # 抽屉：跨平台（Windows / macOS）临时文件收件箱
 ```
 

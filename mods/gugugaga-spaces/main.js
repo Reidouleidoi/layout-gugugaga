@@ -500,7 +500,7 @@ export default class Spaces extends View {
           ))
           .child(v_flex().flex_1().min_w(0).gap(2)
             .child(h_flex().gap(6).items_center()
-              .child(h_flex().flex_shrink(0).max_w(inGroup ? 122 : 140).min_w(0).items_center().gap(3)
+              .child(h_flex().flex_shrink(0).max_w(inGroup ? 150 : 176).min_w(0).items_center().gap(3)
                 .when(on, el => el.child(div().flex_none().text_size(11).text_color(t.accent).child("▸")))
                 .child(div().min_w(0).truncate().when(on, el => el.font_semibold()).text_color(t.foreground).child(w.name)))
               .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1()))

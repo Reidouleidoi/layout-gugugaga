@@ -13,10 +13,16 @@
 ## ✨ Highlights & Pixel Gallery
 
 - **🌌 `gugugaga-ice` Minimalist Arctic Night Theme**: Deep-sea navy/ice-blue base with high-contrast pixel status LEDs and golden active tab highlights designed for long coding sessions.
-- **🐧 3-State Animated `gugugaga` Sprites (`gugugaga-agents`)**: Includes 7 `256×256` pixel avatars and 21 `144×192` transparent 3-state GIFs that switch live with each agent's state. When ≥3 party cards are present, sprites **stagger into two lanes** so art and text never overlap.
-- **🌿 Subagent Squad Pixel Tree**: Automatically detects subagents launched via `hc run` and attaches them under their parent card with 2D pixel trunk lines and collapsible count badges (`▾/▸ N`).
+- **🐧 3-State Sprites & Tri-Partite Party Cards (`gugugaga-agents`)**: Includes 7 `256×256` pixel avatars and 21 `144×192` transparent 3-state GIFs; rebuilt inside a 320px sidebar as unified showcase cards separating **CLI Skin × Model Portrait × Runtime Status** across 9 CLIs / 10 sharp-corner pixel frame styles, 8 model-family half-body portraits, 9 `12×12` pixel vendor logos, and drag-to-reorder sorting.
+- **🌿 Subagent Squad Pixel Tree**: Automatically detects subagents launched via `hc run` and attaches them under their parent card with 2D pixel trunk lines (up to 3 indentation depths) and collapsible count badges (`▾/▸ N`).
 - **🏰 Arctic Landmarks & Space Outliner (`gugugaga-spaces`)**: 4 pixel-outlined arctic buildings (`igloo`, `lighthouse`, `fishshop`, `iceberg`; 160×160 sources drawn at 42×42) with multi-machine outliner tree lines and fold controls.
-- **🗂️ Full Pixel UI Sync (`gugugaga-tabs` / `gugugaga-toast` / `inbox`)**: Synced pixel tab bar, RPG plaque notification toasts (with one-click login command copy), and a cross-platform Inbox adapted for Windows (OneDrive-safe Desktop path & Recycle Bin).
+- **🗂️ Full Pixel UI Sync (`gugugaga-tabs` / `gugugaga-toast` / `inbox`)**: Synced pixel tab bar, RPG plaque notification toasts (synced across all 9 CLI pixel badges, with one-click login command copy), and a cross-platform Inbox adapted for Windows (OneDrive-safe Desktop path & Recycle Bin).
+
+### 🃏 Party Showcase Cards & Subagent Tree (v5 Live Captures)
+
+| CLI Skins × Model Portraits × 4 States (`Claude / Codex / OpenCode / Gemini / Qwen / Kimi`) | Hermes / Gugugaga Fallback / Pi & 2-Level Subagent Tree |
+| :---: | :---: |
+| ![Party Cards Overview](layouts/preview-party-cards.png) | ![Party Hermes and Subagents](layouts/preview-party-subagents.png) |
 
 ### 🐧 `gugugaga` 7-Character Avatar & 3-State Sprite Preview
 
@@ -65,6 +71,15 @@ herdr-app do layout.switch '{"name":"gugugaga"}'
 
 ## 📅 Changelog
 
+### `2026-11-20`
+- **320px sidebar width**: Widened the sidebar from 268px to 320px across `layouts/gugugaga.json` and `gugugaga-chrome`, and increased space-name max widths in `gugugaga-spaces` for cleaner truncation.
+- **Party showcase card overhaul (v5 final, `gugugaga-agents`)**: Replaced the legacy 64px staggered two-lane cards with unified showcase cards separating **CLI Skin × Model Portrait × Runtime Status**:
+  - **9 CLIs / 10 sharp-corner pixel frame styles** (`ring` / `dashed` / `double` / `ornate` / `solid` / `hairline`): dimmed default states by ~35%–45% so `Focused` and `Blocked` cards pop cleanly on scan;
+  - **8 model-family portraits & 9 `12×12` pixel vendor logos** (`art/models/*.png`, `art/vendors/*.svg`): added unified deep-night `IDLE` scrim, widened left-feather text scrim, 5px portrait drop + top vignette to clear riding badges, and the `gugugaga.png` penguin portrait as the unknown-model fallback;
+  - **Refined card layout & step rail**: moved reasoning Effort below the model banner (5-cell `3×4` pixel meter + subtle label + optional custom session subtitle), embedded the arctic space landmark into a flush bottom-edge notch, and connected the left penguin sprite via a `━━┓┗━━` step rail and frameless `#Tab`;
+  - **Interactions & deeper subagent tree**: added left-drag card reordering (`localStorage` key `agents.order`) and expanded the subagent squad tree up to 3 indentation depths.
+- **Synced 9-CLI pixel badges**: Updated `gugugaga-tabs` and `gugugaga-toast` `APPS` tables with `Hermes`, `Qwen`, and `Kimi` plus aligned brand colors across all 9 CLIs.
+
 ### `2026-11-18`
 - **Standalone `layout-gugugaga` repository**: Slimmed down legacy assets into a focused Arctic Night Pixel theme pack with unified `gugugaga-*` mod naming.
 - **`gugugaga-ice` theme & 3-state sprite pool**: Shipped 7 `256×256` avatars and 21 `144×192` 3-state GIFs (`r` rest / `w` working / `b` blocked) with live folder watching and per-terminal/tab caching.
@@ -90,15 +105,17 @@ layout-gugugaga/
 ├── layouts/
 │   ├── gugugaga.json            # Main layout (wires gugugaga-ice theme and mod slots)
 │   ├── gugugaga.png             # Layout picker thumbnail
-│   └── preview-gugugaga.png     # README hero screenshot
+│   ├── preview-gugugaga.png     # README hero screenshot
+│   ├── preview-party-cards.png  # Party CLI skins × model portraits overview
+│   └── preview-party-subagents.png # Party Hermes / fallback penguin / subagent tree preview
 ├── themes/
 │   └── gugugaga-ice.json        # Arctic Night color palette
 └── mods/
     ├── gugugaga-chrome/         # Sidebar frame, background (sidebar-gugugaga.png), and pixel UI icons
     ├── gugugaga-spaces/         # Top-left: machine outliner tree + 4 arctic landmarks (art/gugugaga/*.png)
-    ├── gugugaga-agents/         # Bottom-left: party cards, subagent tree, 7 agent badges & 3-state sprites
-    ├── gugugaga-tabs/           # Top bar: pixel workspace tabs and custom window controls
-    ├── gugugaga-toast/          # Overlay: RPG plaque notification toast
+    ├── gugugaga-agents/         # Bottom-left: tri-partite showcase cards, 3-level subagent tree, 9 CLI skins, 8 model portraits & 3-state sprites
+    ├── gugugaga-tabs/           # Top bar: pixel workspace tabs (9 CLI badges) and custom window controls
+    ├── gugugaga-toast/          # Overlay: RPG plaque notification toast (9 CLI badges)
     └── inbox/                   # Drawer: cross-platform (Windows / macOS) file inbox
 ```
 

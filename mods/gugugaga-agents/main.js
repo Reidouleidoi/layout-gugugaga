@@ -2,29 +2,54 @@
 // 讀 jobs.json 與 data/traveler/sessions 快取；沒有快取時會跑 `hc read <address> --lines 25` 抓終端尾端解析模型。
 // 不連網、不讀憑證、不寫任何檔案；沒有資料就不畫那一段。
 import { readdir } from "fs/promises";
-import { View, div, image, svg } from "gpui-kit";
+import { View, Background, PathBuilder, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { agents, appHome, hc, readTextFile, run, setAgentOrder, spaces, terminals, theme, watchFolder } from "herdr";
-import { assignJobs, cachePath, jobIn, modelText, parseCache, parseTerminalModel, portraitPath, remoteCachePath, resolveAppInfo, setGugugagaPools, spritePath, tabNames } from "./lib.js";
+import { assignJobs, cachePath, cliFrame, cliSkin, contextLabel, effortSpec, jobIn, mixHex, modelFamily, modelLabel, parseCache, parseTerminalModel, portraitPath, remoteCachePath, resolveAppInfo, setGugugagaPools, spacePlaceArt, spritePath, tabNames } from "./lib.js";
 
 const HOME = appHome();
 const SESSIONS_DIR = `${HOME}/data/traveler/sessions`;
 const JOBS_FILE = `${HOME}/mods/gugugaga-agents/jobs.json`;
+const PLACES_FILE = `${HOME}/mods/gugugaga-spaces/places.json`;
+const ORDER_KEY = "agents.order";
 const PIC = 48;
-// Full-body sprites are 48x64 logical pixels (3:4); rendered 1:1 so pixel art stays crisp.
+// Sprites are 48x64 logical pixels (3:4); rendered 1:1 so pixel art stays crisp.
 const SPRITE_W = 48;
 const SPRITE_H = 64;
-const ENTRY_H = 64;
-const STATUS = { working: "Working", blocked: "Needs you", done: "Done", idle: "Idle" };
+// 展示卡：左列極簡階梯像素托架（48x64 企鵝 + ━━┓┗━━ 連入名片底邊）+ 240x96 像素銘牌（底邊齊平挖槽 Space）。
+const CARD_H = 109;
+const CARD_GAP = 8;
+const CARD_STEP = CARD_H + CARD_GAP;
+const LEFT_W = 56; // 立繪列寬
+const PLATE_X = LEFT_W + 8; // 銘牌左緣 = 64
+const PLATE_W = 240;
+const PLATE_H = 96;
+const PLATE_TOP = 11; // 騎框徽章 h22、中線騎在 y=11 的頂框上
+const PLATE_BOTTOM = PLATE_TOP + PLATE_H; // 107，名片底邊絕對筆直基線
+const ART_W = 112; // 立繪 @2x 224x180 -> 邏輯 112x90
+const ART_H = 90;
+const SPRITE_TOP = 10; // 企鵝 y=10..74，腳底穩踩在 y=74 水平托盤線上
+const TRAY_X = 4;
+const TRAY_W = 50; // x=4..54
+const TRAY_Y = 74;
+const DROP_X = 52; // x=52..54 直角下折至 y=107
+const TAB_ROW_TOP = 80;
+const TAB_ROW_H = 20; // y=80..100，居中於企鵝正下方 x=4..50
+const NOTCH_LEFT_IN_PLATE = 10;
+const NOTCH_W = 142;
+const NOTCH_H = 19; // bottom 嚴格齊平 y=107，絕不下凸破框
+const TRACK_START_IN_PLATE = NOTCH_LEFT_IN_PLATE + NOTCH_W; // 152
+const MONO_FONT = "Cascadia Mono";
+const PLATE_INK = "#070b12";
 const withAlpha = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
 
 // ── 小隊梯（子代理）：巢狀關係只存在 terminals() 的 parent 上，agents() 沒有這個欄位。
 // 對齊 gugugaga-spaces 的像素 outliner：2px 樹幹、9x2 橫枝、5px 方塊節點。
 const SQUAD_H = 17; // 子代理列高
 const SQUAD_GAP = 2; // 列與列之間留 2px，由樹幹補滿，接縫不會斷
-const TRUNK_X = 14; // 第一層樹幹的 x
+const TRUNK_X = 27; // 樹幹對齊企鵝與 #Tab 正下方中心
 const DEPTH_STEP = 12; // 每深一層右移
-const DEPTH_MAX = 2; // 面板只有 268 寬，縮排最多兩層
+const DEPTH_MAX = 3; // 320px 側欄可以容納三層縮排
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 
 // 子代理狀態：有自己 pane 的以 agents() 為準，沒有 pane 的只信 core 的 status。
@@ -54,21 +79,276 @@ function portrait(a, assigned, t) {
     .child(p.tint ? svg(p.icon).size(24).text_color(t.foreground) : image(p.icon).w(24).h(24));
 }
 
-// Pixel agent logo + name badge inside the plate.
-function agentBadge(info, t) {
-  const color = info.color ?? t.accent;
-  return h_flex()
+// ── 像素銘牌零件 ───────────────────────────────────────────────────────────
+const STATUS = { working: "WORKING", blocked: "NEEDS YOU", done: "DONE", idle: "IDLE" };
+
+// 狀態扣的實底配色：用不透明的深色截斷背後的粗框，形成嵌槽像素卡扣。
+const STATUS_SKIN = {
+  working: { bg: "#0e2238fa", border: "#8ccaffdd", text: "#d8eeff" },
+  blocked: { bg: "#241708f8", border: "#ffb547ee", text: "#ffd080" },
+  done: { bg: "#0d1d18f5", border: "#7fd8a899", text: "#9ae6be" },
+  idle: { bg: "#0d131cf0", border: "#5d687866", text: "#7c8a9e" },
+};
+
+// 滿版矩形路徑：paint_path 只吃 Path，漸層、網點與斜紋都靠它。
+const rectPath = () =>
+  PathBuilder.fill()
+    .move_to("0%", "0%")
+    .line_to("100%", "0%")
+    .line_to("100%", "100%")
+    .line_to("0%", "100%")
+    .close()
+    .build();
+
+const hex8 = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
+
+// 4 角像素塊/階梯小點（每個元件各自 2x2px）
+function cornerPixels(color, inset = 1, size = 2) {
+  return [
+    div().absolute().left(inset).top(inset).size(size).bg(color),
+    div().absolute().right(inset).top(inset).size(size).bg(color),
+    div().absolute().left(inset).bottom(inset).size(size).bg(color),
+    div().absolute().right(inset).bottom(inset).size(size).bg(color),
+  ];
+}
+
+// CLI 外框：全流派像素化（rounded(0) + 階梯角點/L角 + 1px 內邊高光）。
+function frameLook(skin, si) {
+  const style = skin.style;
+  const { border: frameBorder, cabinInset } = cliFrame(style);
+  const deco = [];
+  let borderColor = "#00000000";
+  if (style === "ring") {
+    borderColor = skin.ink;
+    const g = skin.ring;
+    deco.push(
+      div()
+        .absolute()
+        .inset_0()
+        .rounded(0)
+        .overflow_hidden()
+        .opacity(skin.brightness[si])
+        .child(
+          window
+            .paint_path(
+              rectPath(),
+              Background.linear_gradient(
+                g.angle,
+                Background.stop(g.from, 0),
+                Background.stop(g.to, 1),
+              ).color_space("oklab"),
+            )
+            .absolute()
+            .top(0)
+            .left(0)
+            .size_full(),
+        ),
+    );
+    deco.push(
+      div()
+        .absolute()
+        .inset(1)
+        .rounded(0)
+        .border(1)
+        .border_color(skin.innerLine[si]),
+    );
+  } else if (style === "dashed") {
+    const c = skin.corner[si];
+    deco.push(
+      div()
+        .absolute()
+        .inset(1)
+        .rounded(0)
+        .border(1)
+        .border_dashed()
+        .border_color(skin.dashed[si]),
+    );
+    // 4 角 8 个 div 拼 2px L 角：12x2 + 2x10 + 角點像素釘
+    const bar = (pos) => {
+      let el = div().absolute().bg(c).w(pos.w).h(pos.h);
+      if (pos.left !== undefined) el = el.left(pos.left);
+      if (pos.right !== undefined) el = el.right(pos.right);
+      if (pos.top !== undefined) el = el.top(pos.top);
+      if (pos.bottom !== undefined) el = el.bottom(pos.bottom);
+      return el;
+    };
+    deco.push(
+      bar({ left: 1, top: 1, w: 12, h: 2 }),
+      bar({ left: 1, top: 1, w: 2, h: 10 }),
+      bar({ right: 1, top: 1, w: 12, h: 2 }),
+      bar({ right: 1, top: 1, w: 2, h: 10 }),
+      bar({ left: 1, bottom: 1, w: 12, h: 2 }),
+      bar({ left: 1, bottom: 1, w: 2, h: 10 }),
+      bar({ right: 1, bottom: 1, w: 12, h: 2 }),
+      bar({ right: 1, bottom: 1, w: 2, h: 10 }),
+      ...cornerPixels(skin.ink, 0, 1),
+    );
+  } else if (style === "double") {
+    borderColor = skin.outer[si];
+  } else if (style === "ornate" || style === "solid") {
+    borderColor = skin.outer[si];
+  } else if (style === "hairline") {
+    borderColor = skin.line[si];
+  }
+  return { frameBorder, cabinInset, borderColor, deco };
+}
+
+// 左脊柱（CLI 體系）：AGY 是三段棱鏡刻度，其餘是通高細脊；noSpine 流派留白。
+function spineNode(skin, si) {
+  if (skin.noSpine || !skin.spine) return null;
+  const sp = skin.spine;
+  if (sp.kind === "segments") {
+    return v_flex()
+      .absolute()
+      .left(3)
+      .top(8)
+      .bottom(8)
+      .w(2)
+      .gap(4)
+      .children([0, 1, 2].map((i) => div().flex_1().w_full().bg(`${sp.colors[i % 2]}${sp.state[si]}`)));
+  }
+  return div().absolute().left(3).top(8).bottom(8).w(2).bg(sp.colors[si]);
+}
+
+// 立繪正后方的極淡模型背襯光（GLM 黑長直加濃到 22%）。
+function modelBacking(primary, strong) {
+  return div()
+    .absolute()
+    .right(0)
+    .top(0)
+    .w(88)
+    .h_full()
+    .child(
+      window
+        .paint_path(
+          rectPath(),
+          Background.linear_gradient(
+            270,
+            Background.stop(hex8(primary, strong ? "38" : "1f"), 0),
+            Background.stop(hex8(primary, "00"), 1),
+          ).color_space("oklab"),
+        )
+        .absolute()
+        .top(0)
+        .left(0)
+        .size_full(),
+    );
+}
+
+// 兩段式左向遮罩的第二段：x=96..180（前 16px 實色接 68px 柔和羽化），確保 160px 模型名尾部不被亮立繪吞字。
+function fadeLayer(plate, angle) {
+  return div()
+    .absolute()
+    .left(96)
+    .top(0)
+    .w(84)
+    .h_full()
+    .overflow_hidden()
+    .child(div().absolute().left(0).top(0).w(16).h_full().bg(plate))
+    .child(
+      div()
+        .absolute()
+        .left(16)
+        .top(0)
+        .w(68)
+        .h_full()
+        .child(
+          window
+            .paint_path(
+              rectPath(),
+              Background.linear_gradient(
+                angle,
+                Background.stop(hex8(plate, "ff"), 0),
+                Background.stop(hex8(plate, "00"), 1),
+              ).color_space("oklab"),
+            )
+            .absolute()
+            .top(0)
+            .left(0)
+            .size_full(),
+        ),
+    );
+}
+
+// 未知模型時的右側 112x90 缺省槽：極淡背光 + 低不透明度 Pixel Agent 標誌 + 像素角點，消除純黑死洞。
+function unknownArtSlot() {
+  return div()
+    .absolute()
+    .right(0)
+    .top(0)
+    .w(ART_W)
+    .h(ART_H)
+    .overflow_hidden()
+    .child(
+      div()
+        .size_full()
+        .relative()
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(
+          window
+            .paint_path(
+              rectPath(),
+              Background.linear_gradient(
+                270,
+                Background.stop("#8ccaff14", 0),
+                Background.stop("#8ccaff00", 1),
+              ).color_space("oklab"),
+            )
+            .absolute()
+            .top(0)
+            .left(0)
+            .size_full(),
+        )
+        .children(cornerPixels("#8ccaff28", 6, 2))
+        .child(image("mods/gugugaga-agents/art/logo-agent.svg").size(32).opacity(0.16)),
+    );
+}
+
+// Agent 扣：精緻克制 h=22、16x16 像素 SVG + 舒適留白 + Cascadia Mono 加粗大寫 CLI 名。
+function agentBadge(info, _t, focused, skin) {
+  const color = info.color ?? skin.accent;
+  const mark = info.tint
+    ? svg(info.logo).size(16).flex_none().text_color(color)
+    : image(info.logo).size(16).flex_none();
+  const label = String(info.short || info.text).trim().toUpperCase();
+  return div()
+    .relative()
     .flex_none()
-    .h(14)
-    .px(3)
-    .gap(3)
-    .items_center()
-    .rounded(3)
-    .bg(withAlpha(t.canvas, "e0"))
-    .border(1)
-    .border_color(withAlpha(color, "88"))
-    .child(info.tint ? svg(info.logo).size(11).flex_none().text_color(color) : image(info.logo).size(11).flex_none())
-    .child(div().flex_none().font_semibold().text_size(9).text_color(color).child(info.short || info.text));
+    .pb(1)
+    .child(div().absolute().left(1).right(0).bottom(0).h(1).bg("#02050aa8"))
+    .child(
+      h_flex()
+        .relative()
+        .h(22)
+        .px(6)
+        .gap(5)
+        .items_center()
+        .rounded(0)
+        .max_w(124)
+        .bg("#0b111cf5")
+        .border(1)
+        .border_color(hex8(color, focused ? "dd" : "88"))
+        .child(
+          div()
+            .min_w(0)
+            .flex()
+            .items_center()
+            .gap(5)
+            .child(mark)
+            .child(
+              div()
+                .min_w(0)
+                .truncate()
+                .font_family(MONO_FONT)
+                .font_bold()
+                .text_size(10.5)
+                .text_color(color)
+                .child(label),
+            ),
+        ),
+    );
 }
 
 // 狀態記號：卡片徽章與子代理列共用同一組像素字形。
@@ -76,42 +356,303 @@ function statusMark(status, statusColor) {
   return status === "working"
     ? div().flex_none().text_size(9).text_color(statusColor).frames(["▘", "▝", "▗", "▖"], 140)
     : status === "blocked"
-      ? div().w(7).flex().items_center().justify_center().font_bold().text_size(9.5).text_color(statusColor).frames(["!", " "], 600)
+      ? div()
+          .w(7)
+          .flex()
+          .items_center()
+          .justify_center()
+          .font_bold()
+          .text_size(9.5)
+          .text_color(statusColor)
+          .loop("opacity", { from: 0.35, to: 1.0, period: 900, easing: "ease-in-out" })
+          .child("!")
       : div().flex_none().text_size(9).text_color(statusColor).child(status === "done" ? "✓" : "▪");
 }
 
-// Pixel status badge for Row 1 right side.
-function statusBadge(status, statusColor, t) {
-  const label = STATUS[status] ?? status;
-  return h_flex()
+// 右上狀態扣：克制精煉 h=19 + rounded(0) + Cascadia Mono 9px。
+function statusBadge(status, t) {
+  const skin = STATUS_SKIN[status] ?? STATUS_SKIN.idle;
+  const label = STATUS[status] ?? String(status).toUpperCase();
+  const icon =
+    status === "working"
+      ? div()
+          .w(18)
+          .flex_none()
+          .font_family(MONO_FONT)
+          .text_size(8.5)
+          .text_color(skin.text)
+          .frames(["▁▂▃", "▂▃▅", "▃▅▇", "▅▇▅", "▇▅▃", "▅▃▂", "▃▂▁", "▂▁▂"], 130)
+      : status === "blocked"
+        ? div()
+            .size(11)
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(0)
+            .bg(t.blocked)
+            .font_family(MONO_FONT)
+            .text_size(8.5)
+            .font_bold()
+            .text_color("#0b1018")
+            .loop("opacity", { from: 0.4, to: 1.0, period: 900, easing: "ease-in-out" })
+            .child("!")
+        : status === "done"
+          ? div()
+              .size(11)
+              .flex_none()
+              .flex()
+              .items_center()
+              .justify_center()
+              .rounded(0)
+              .bg("#7fd8a828")
+              .font_family(MONO_FONT)
+              .text_size(8.5)
+              .text_color("#7fd8a8")
+              .child("✓")
+          : div().flex_none().text_size(8.5).text_color("#6b7686").child("▪");
+  return div()
+    .relative()
     .flex_none()
-    .h(14)
-    .px(5)
-    .gap(3)
-    .items_center()
-    .rounded(4)
-    .bg(withAlpha(statusColor, "1a"))
-    .border(1)
-    .border_color(withAlpha(statusColor, "44"))
-    .child(statusMark(status, statusColor))
-    .child(div().flex_none().text_size(9.5).font_medium().text_color(statusColor).child(label));
+    .pb(1)
+    .child(div().absolute().left(1).right(0).bottom(0).h(1).bg("#02050aa8"))
+    .child(
+      h_flex()
+        .relative()
+        .h(19)
+        .px(5)
+        .gap(4)
+        .items_center()
+        .rounded(0)
+        .bg(skin.bg)
+        .border(1)
+        .border_color(skin.border)
+        .child(icon)
+        .child(
+          div()
+            .flex_none()
+            .font_family(MONO_FONT)
+            .text_size(9)
+            .when(status === "working" || status === "blocked", (el) => el.font_semibold())
+            .text_color(skin.text)
+            .child(label),
+        ),
+    );
 }
 
-// Compute entry height, vertical step, and staggered character lanes so text never
-// gets occluded by sprites in multi-agent mode.
-function stackMetrics(count, panelH) {
-  if (count <= 2) {
-    return { cardH: ENTRY_H, stepY: ENTRY_H + 4, offsets: [4], textPl: 60 };
-  }
-  const availH = Math.max(220, (panelH || 380) - 16);
-  const idealStep = Math.floor((availH - ENTRY_H) / (count - 1));
-  const stepY = Math.max(46, Math.min(56, idealStep));
-  return { cardH: ENTRY_H, stepY, offsets: [2, 34], textPl: 88 };
+// 主角模型橫幅（w=160, h=22）：左 2px primary 實色豎條 + 通透柔和漸變 + 14x14 廠家 Logo + 亮白模型名。
+function modelBanner(family, model, rawModel, fallbackLabel, t) {
+  const primary = family.primary;
+  const label = model || fallbackLabel;
+  return div()
+    .relative()
+    .w(160)
+    .h(22)
+    .rounded(0)
+    .overflow_hidden()
+    .child(
+      window
+        .paint_path(
+          rectPath(),
+          Background.linear_gradient(
+            90,
+            Background.stop(hex8(primary, "2e"), 0),
+            Background.stop(hex8(primary, "00"), 1),
+          ).color_space("oklab"),
+        )
+        .absolute()
+        .top(0)
+        .left(0)
+        .size_full(),
+    )
+    .child(
+      window
+        .paint_path(
+          rectPath(),
+          Background.linear_gradient(
+            90,
+            Background.stop(hex8(primary, "22"), 0),
+            Background.stop(hex8(primary, "00"), 1),
+          ).color_space("oklab"),
+        )
+        .absolute()
+        .left(2)
+        .right(0)
+        .top(0)
+        .h(1),
+    )
+    .child(
+      window
+        .paint_path(
+          rectPath(),
+          Background.linear_gradient(
+            90,
+            Background.stop(hex8(primary, "22"), 0),
+            Background.stop(hex8(primary, "00"), 1),
+          ).color_space("oklab"),
+        )
+        .absolute()
+        .left(2)
+        .right(0)
+        .bottom(0)
+        .h(1),
+    )
+    .child(div().absolute().left(0).top(0).bottom(0).w(2).bg(primary))
+    .child(
+      h_flex()
+        .relative()
+        .size_full()
+        .pl(6)
+        .pr(4)
+        .gap(5)
+        .items_center()
+        .child(image(family.vendorLogo).size(14).flex_none())
+        .child(
+          div()
+            .flex_1()
+            .min_w(0)
+            .truncate()
+            .font_semibold()
+            .text_size(11.5)
+            .text_color(model ? "#f0f6ff" : t.dim)
+            .when(Boolean(rawModel), (el) => el.tooltip(String(rawModel)))
+            .child(label),
+        ),
+    );
+}
+
+// 副信息 Effort + 可選上下文副標（h=14, max_w=150）：3x4 像素點 + 低飽和等寬字 + 自訂會話名。
+function effortBar(effort, primary, contextTag) {
+  const spec = effortSpec(effort);
+  if (!spec && !contextTag) return null;
+  return h_flex()
+    .h(14)
+    .max_w(150)
+    .gap(6)
+    .items_center()
+    .when(Boolean(spec), (el) =>
+      el.child(
+        h_flex()
+          .flex_none()
+          .gap(5)
+          .items_center()
+          .child(
+            h_flex()
+              .gap(2)
+              .items_center()
+              .children(
+                spec.cells.map((lit) =>
+                  div()
+                    .w(3)
+                    .h(4)
+                    .rounded(0)
+                    .bg(lit ? hex8(primary, "cc") : "#ffffff18"),
+                ),
+              ),
+          )
+          .child(
+            div()
+              .font_family(MONO_FONT)
+              .text_size(8.5)
+              .text_color(mixHex("#8b99ad", primary, 0.35))
+              .child(spec.label.toLowerCase()),
+          ),
+      ),
+    )
+    .when(Boolean(contextTag), (el) =>
+      el.child(
+        div()
+          .flex_1()
+          .min_w(0)
+          .truncate()
+          .font_family(MONO_FONT)
+          .text_size(8.5)
+          .text_color("#7f91a8")
+          .child(spec ? `· ${contextTag}` : contextTag),
+      ),
+    );
+}
+
+// 底邊齊平方形挖槽：bottom 嚴格對齊 PLATE_BOTTOM（絕不下凸破框），上/左/右 1px 像素邊，底邊敞口遮平底框線。
+function spaceNotch(a, places, spaceName, borderColor) {
+  return div()
+    .relative()
+    .w(NOTCH_W)
+    .h(NOTCH_H)
+    .rounded(0)
+    .bg("#0b1018")
+    .child(div().absolute().left(0).right(0).top(0).h(1).bg(borderColor))
+    .child(div().absolute().left(0).top(0).bottom(0).w(1).bg(borderColor))
+    .child(div().absolute().right(0).top(0).bottom(0).w(1).bg(borderColor))
+    .child(
+      h_flex()
+        .relative()
+        .size_full()
+        .px(5)
+        .gap(5)
+        .items_center()
+        .child(image(spacePlaceArt(a.space_name, places)).size(14).flex_none())
+        .child(
+          div()
+            .flex_1()
+            .min_w(0)
+            .truncate()
+            .font_family(MONO_FONT)
+            .text_size(9.5)
+            .text_color("#c4d3e6")
+            .child(spaceName),
+        ),
+    );
+}
+
+// Working 底槽 + 深底襯墊 + 亮冰藍掃描像素塊（銜接於 Space 挖槽右側 x=152..right-1，貼齊底邊 1px 外框）。
+function workingTrack(startLeft) {
+  return div()
+    .absolute()
+    .left(startLeft)
+    .right(1)
+    .bottom(1)
+    .h(2)
+    .overflow_hidden()
+    .bg("#070c14d8")
+    .child(div().absolute().inset_0().bg("#8ccaff26"))
+    .child(
+      h_flex()
+        .absolute()
+        .left(0)
+        .bottom(0)
+        .w(28)
+        .h(2)
+        .gap(3)
+        .loop("left", { from: 0, to: 52, period: 1600, easing: "ease-in-out" })
+        .child(div().flex_1().h(2).rounded(0).bg("#8ccaffee"))
+        .child(div().flex_1().h(2).rounded(0).bg("#8ccaffee"))
+        .child(div().flex_1().h(2).rounded(0).bg("#8ccaffee")),
+    );
+}
+
+// Blocked 底槽的琥珀斜紋（銜接於 Space 挖槽右側 x=152..right-1）。
+function blockedSlash(startLeft) {
+  return div()
+    .absolute()
+    .left(startLeft)
+    .right(1)
+    .bottom(1)
+    .h(3)
+    .child(
+      window
+        .paint_path(rectPath(), Background.pattern_slash("#ffb54777", 4, 8))
+        .absolute()
+        .top(0)
+        .left(0)
+        .size_full(),
+    );
 }
 
 export default class Traveler extends View {
   init(_props, cx) {
     this.jobs = {};
+    this.places = {};
     this.cache = {};
     this.remote = {};
     this.screenModels = {};
@@ -127,7 +668,12 @@ export default class Traveler extends View {
     this.folded = new Set(); // 折起來的子代理：address
     this.listed = new Map(); // address -> agents() 的狀態（有 pane 的子代理用這個）
     this.focusedAgent = null;
+    // Drag-to-reorder: pressed/over are top-level indexes in the list currently drawn.
+    this.pressed = null;
+    this.over = null;
+    this.shownAddrs = [];
     this.loadJobs(cx);
+    this.loadPlaces(cx);
     this.loadPools(cx);
     this.watchPools(cx);
     this.load(cx);
@@ -278,6 +824,56 @@ export default class Traveler extends View {
     });
   }
 
+  loadPlaces(cx) {
+    // 與 gugugaga-spaces 共用 places.json；檔案不存在就用名稱哈希配建築。
+    cx.spawn(async (cx) => {
+      const text = await readTextFile(PLACES_FILE).catch(() => null);
+      let places = {};
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) places = parsed;
+      } catch {
+        places = {};
+      }
+      this.places = places;
+      cx.notify();
+    });
+  }
+
+  // 儲存的順序：address 陣列。認不得的（新 agent）排在已知的最後，彼此照原順序。
+  savedOrder() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ORDER_KEY) ?? "[]");
+      return Array.isArray(raw) ? raw.filter((x) => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  applyOrder(list) {
+    const saved = this.savedOrder();
+    if (saved.length === 0) return list;
+    const rank = new Map(saved.map((addr, i) => [addr, i]));
+    return list
+      .map((a, i) => ({ a, i }))
+      .sort((x, y) => {
+        const rx = rank.has(x.a.address) ? rank.get(x.a.address) : Number.POSITIVE_INFINITY;
+        const ry = rank.has(y.a.address) ? rank.get(y.a.address) : Number.POSITIVE_INFINITY;
+        return rx === ry ? x.i - y.i : rx - ry;
+      })
+      .map((o) => o.a);
+  }
+
+  moveCard(from, to, cx) {
+    const addrs = this.shownAddrs.slice();
+    if (from < 0 || to < 0 || from >= addrs.length || to >= addrs.length) return;
+    const [moved] = addrs.splice(from, 1);
+    addrs.splice(to, 0, moved);
+    localStorage.setItem(ORDER_KEY, JSON.stringify(addrs));
+    setAgentOrder(addrs);
+    cx.notify();
+  }
+
   loadJobs(cx) {
     cx.spawn(async (cx) => {
       const text = await readTextFile(JOBS_FILE).catch(() => null);
@@ -361,8 +957,8 @@ export default class Traveler extends View {
   }
 
   // 把 top-level 卡片、子代理列與接縫樹幹排成 y 座標。
-  // 有子代理的條目用完整節奏（cardH + 4），不然 64px 的立繪會壓到第一列。
-  stackLayout(list, kids, m) {
+  // 所有卡片同一個展示高度，立繪一律靠左，不再交錯；子代理列接在父母卡片下方。
+  stackLayout(list, kids) {
     const cards = [];
     const subs = [];
     const stubs = [];
@@ -378,44 +974,52 @@ export default class Traveler extends View {
         return (RANK[st] ?? 0) > (RANK[best] ?? 0) ? st : best;
       }, null);
       cards.push({ a, i, y: start, count: children.length, open, urgent });
-      y = start + (children.length > 0 ? m.cardH + 4 : m.stepY);
-      bottom = start + m.cardH;
+      y = start + CARD_STEP;
+      bottom = start + CARD_H;
       if (!open) return;
-      // 從 plate 底部接第一列：由 stub 補齊到 first，列與列之間由各列的樹幹補。
-      const trunkX = m.offsets[i % m.offsets.length] + 22;
-      const first = start + m.cardH + SQUAD_GAP;
-      stubs.push({ x: trunkX, y: start + m.cardH - 6, h: 6 + SQUAD_GAP });
-      children.forEach((s, n) => subs.push({ ...s, trunkX, y: first + n * (SQUAD_H + SQUAD_GAP) }));
+      // 從下方無框 #Tab 標籤正下方接第一列：由 stub 補齊到 first，列與列之間由各列的樹幹補。
+      const first = start + CARD_H + SQUAD_GAP;
+      stubs.push({ x: TRUNK_X, y: start + TAB_ROW_TOP + TAB_ROW_H + 2, h: CARD_H - (TAB_ROW_TOP + TAB_ROW_H + 2) + SQUAD_GAP });
+      children.forEach((s, n) => subs.push({ ...s, trunkX: TRUNK_X, y: first + n * (SQUAD_H + SQUAD_GAP) }));
       bottom = first + (children.length - 1) * (SQUAD_H + SQUAD_GAP) + SQUAD_H;
       y = bottom + SQUAD_GAP + 2;
     });
     return { cards, subs, stubs, totalH: bottom > 0 ? bottom + 4 : 0 };
   }
 
-  // 卡片 Row 1 的小隊徽章：折疊開關＋人數，顏色跟最緊急的子代理走。
+  // 卡片內的小隊徽章：h=19 + rounded(0) + Cascadia Mono + 硬像素邊框。
   squadChip(a, card, t) {
     const color = t[card.urgent] ?? t.dim;
     const open = card.open;
-    return h_flex()
-      .id(`squad-${a.address}`)
+    return div()
+      .relative()
       .flex_none()
-      .h(14)
-      .px(4)
-      .gap(2)
-      .items_center()
-      .rounded(4)
-      .bg(withAlpha(color, "1a"))
-      .border(1)
-      .border_color(withAlpha(color, "44"))
-      .cursor_pointer()
-      .on_click((_e, cx) => {
-        cx.stop_propagation();
-        if (open) this.folded.add(a.address);
-        else this.folded.delete(a.address);
-        cx.notify();
-      })
-      .child(div().flex_none().text_size(8.5).text_color(color).child(open ? "▾" : "▸"))
-      .child(div().flex_none().text_size(9).font_semibold().text_color(color).child(String(card.count)));
+      .pb(1)
+      .child(div().absolute().left(1).right(0).bottom(0).h(1).bg("#02050aa8"))
+      .child(
+        h_flex()
+          .id(`squad-${a.address}`)
+          .relative()
+          .h(19)
+          .px(5)
+          .gap(3)
+          .items_center()
+          .rounded(0)
+          .bg("#0b111cf5")
+          .border(1)
+          .border_color(hex8(color, "88"))
+          .cursor_pointer()
+          // 不讓折疊點擊被外層卡片的拖曳/聚焦吃掉。
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+          .on_click((_e, cx) => {
+            cx.stop_propagation();
+            if (open) this.folded.add(a.address);
+            else this.folded.delete(a.address);
+            cx.notify();
+          })
+          .child(div().flex_none().font_family(MONO_FONT).text_size(8.5).text_color(color).child(open ? "▾" : "▸"))
+          .child(div().flex_none().font_family(MONO_FONT).text_size(9).font_bold().text_color(color).child(String(card.count))),
+      );
   }
 
   // 子代理列：像素 outliner 的樹幹／橫枝／方塊節點，右側接一行窄資訊（不用立繪，沒有新 GIF）。
@@ -477,129 +1081,379 @@ export default class Traveler extends View {
       );
   }
 
-  cardPlate(a, i, m, t, card) {
+  cardPlate(a, t, card) {
     const cache = this.cache[a.address] ?? this.remote[a.address] ?? null;
     const screen = this.screenModels[a.address] ?? null;
     const isHot = this.hovered === a.address;
-    // blocked 優先級最高：plate 框線與狀態色都用 t.blocked，蓋過 focused 的 t.accent。
-    const plateBorder = a.status === "blocked" ? t.blocked : a.focused || isHot ? t.accent : withAlpha(t.border, "99");
-    const statusColor = a.status === "blocked" ? t.blocked : t[a.status] ?? t.dim;
+    // 多個 agent 可能同時回報 focused：只認這一個，否則一整排卡片都會發亮。
+    const focused = a.address === this.focusedAgent;
     const info = resolveAppInfo(a);
-    const model = modelText(cache?.model ?? screen?.model, cache?.effort ?? screen?.effort);
-    const modelLine = model || cache?.name || a.space_name || "ready";
-    const tabRaw = String(a.tab_name || "").trim();
-    const numericTab = /^\d+$/.test(tabRaw);
+    const skin = cliSkin(info.cli);
+    const rawModel = cache?.model ?? screen?.model ?? null;
+    const family = modelFamily(rawModel, info.key);
+    const model = modelLabel(rawModel);
+    const effort = cache?.effort ?? screen?.effort ?? null;
     const spaceName = a.space_name || a.address;
-    const spriteX = m.offsets[i % m.offsets.length];
+    const tabRaw = String(a.tab_name || "").trim();
+    const tabLabel = tabRaw || spaceName;
+    const hashTab = tabLabel.startsWith("#") ? tabLabel : `#${tabLabel}`;
+    // 四態：blocked > focused > hovered > default；si 只給 CLI 色表取樣。
+    const state =
+      a.status === "blocked" ? "blocked" : focused ? "focused" : isHot ? "hovered" : "default";
+    const si = state === "focused" ? 2 : state === "hovered" ? 1 : 0;
+    const look = frameLook(skin, si);
+    const art = family.art;
+    const isDimIdle = a.status === "idle" && !focused && !isHot;
+    const artOpacity =
+      state === "blocked" ? 0.92 : state === "focused" ? 0.98 : state === "hovered" ? 0.94 : isDimIdle ? 0.48 : 0.84;
+    const mist =
+      state === "blocked" ? "#ffb54710" : state === "focused" ? "#8ccaff0e" : state === "hovered" ? "#ffffff08" : null;
+    // 底部階梯像素托架（━━┓┗━━）與無框 #Tab 配色
+    const railColor =
+      state === "blocked"
+        ? "#ffb547"
+        : state === "focused"
+          ? "#8ccaff"
+          : state === "hovered"
+            ? "#69a6e0"
+            : mixHex(skin.plate, skin.accent, 0.42);
+    const lStep = {
+      line: railColor,
+      hi: state === "blocked" ? "#ffe0a366" : state === "focused" ? "#e0f2ff88" : "#ffffff24",
+      fg:
+        state === "blocked"
+          ? "#ffd080"
+          : state === "focused"
+            ? "#eef4fc"
+            : state === "hovered"
+              ? "#c8d6e8"
+              : "#8f9fb5",
+      arrow: state === "blocked" ? "#ffb547" : "#8ccaff",
+    };
+    const dropLine = this.pressed !== null && this.over === card.i && this.pressed !== card.i;
+    const spine = spineNode(skin, si);
+    const fallbackLabel = model ? "ready" : cache?.name || "ready";
+    const contextTag = model
+      ? contextLabel(cache?.name, a.tab_name, { model, rawModel, spaceName })
+      : contextLabel(null, a.tab_name, { model: fallbackLabel, spaceName });
+    const effortRow = effortBar(effort, family.primary, contextTag);
+    const unifiedOutline =
+      state === "blocked" ? "#ffb547ee" : state === "focused" ? "#8ccaffa8" : null;
+    const skinEdge =
+      skin.outer?.[si] ?? skin.line?.[si] ?? skin.innerLine?.[si] ?? skin.dashed?.[si] ?? mixHex(skin.plate, skin.accent, 0.42);
+    const notchBorder =
+      state === "blocked" ? "#ffb547ee" : state === "focused" ? "#8ccaff" : state === "hovered" ? "#8ccaff88" : skinEdge;
+
     return div()
       .id(`traveler-${a.address}`)
       .absolute()
       .left(0)
       .right(0)
       .top(card.y)
-      .h(m.cardH)
-      .when(a.focused, (el) => el.rounded(6).bg(withAlpha(t.raised, "88")))
-      .when(!a.focused && isHot, (el) => el.rounded(6).bg(withAlpha(t.raised, "55")))
+      .h(CARD_H)
+      .rounded(0)
+      .when(this.pressed === card.i, (el) => el.opacity(0.5))
       .cursor_pointer()
       .on_hover((on, cx) => {
         if (on) this.hovered = a.address;
         else if (this.hovered === a.address) this.hovered = null;
         cx.notify();
       })
-      .on_click(() => run("agent.focus", { terminal: a.address }))
+      // 拖曳重排：按下記住來源，移到哪張卡就把 over 指到哪裡，放開才決定是拖曳還是點擊。
+      .on_mouse_down("left", () => {
+        this.pressed = card.i;
+        this.over = card.i;
+      })
+      .on_mouse_move((_e, cx) => {
+        if (this.pressed !== null && this.over !== card.i) {
+          this.over = card.i;
+          cx.notify();
+        }
+      })
+      .on_mouse_up("left", (_e, cx) => {
+        const from = this.pressed;
+        const to = this.over;
+        this.pressed = null;
+        this.over = null;
+        // from === null：這一下不是從卡片上按下的（例如折疊徽章自己吃掉了按下事件），不要誤聚焦。
+        if (from !== null && to !== null && from !== to) this.moveCard(from, to, cx);
+        else if (from !== null) run("agent.focus", { terminal: a.address });
+        cx.notify();
+      })
+      // 右側 240x96 CLI 特色外框（外圈 → 裝飾 → 內艙，乾淨極夜底板，零網點雜訊與黑泥底影）。
       .child(
         div()
           .absolute()
-          .left(spriteX + 10)
-          .bottom(0)
-          .w(28)
-          .h(3)
-          .bg(a.status === "blocked" ? withAlpha(t.blocked, "55") : withAlpha(t.foreground, "22")),
-      )
-      .child(
-        v_flex()
-          .size_full()
-          .pl(m.textPl)
-          .pr(6)
-          .pb(6)
-          .justify_end()
-          .gap(2)
+          .left(PLATE_X)
+          .top(PLATE_TOP)
+          .w(PLATE_W)
+          .h(PLATE_H)
+          .rounded(0)
+          .bg(skin.plate)
+          .border(look.frameBorder)
+          .border_color(look.borderColor)
+          .overflow_hidden()
+          .children(look.deco)
           .child(
-            h_flex()
-              .w_full()
-              .min_w(0)
-              .h(14)
-              .px(3)
-              .gap(4)
-              .items_center()
-              .bg(withAlpha(t.canvas, "66"))
-              .when(numericTab, (row) =>
-                row
-                  .child(div().flex_none().font_semibold().text_size(11).text_color(t.accent).child(`#${tabRaw}`))
-                  .child(div().flex_1().min_w(0).truncate().font_semibold().text_size(11.5).text_color(t.foreground).child(spaceName)),
-              )
-              .when(!numericTab, (row) =>
-                row.child(
-                  h_flex()
-                    .flex_1()
-                    .min_w(0)
-                    .gap(4)
-                    .items_center()
-                    .child(div().min_w(0).truncate().font_semibold().text_size(11.5).text_color(t.foreground).child(tabRaw || spaceName))
-                    .when(Boolean(tabRaw && a.space_name && tabRaw !== a.space_name), (el) =>
-                      el.child(div().min_w(0).truncate().text_size(10.5).text_color(t.muted).child(`· ${a.space_name}`)),
+            // 內艙：inset 依流派查表，確保立繪 112x90 槽位精準對齊。
+            div()
+              .absolute()
+              .inset(look.cabinInset)
+              .rounded(0)
+              .bg(skin.plate)
+              .overflow_hidden()
+              // 立繪微背襯光（Model 體系）
+              .when(Boolean(art), (el) => el.child(modelBacking(family.primary, family.moon)))
+              // 右貼半身立繪（圖檔頂部已留安全邊距，top(0) 完整保留胸口領結，非聚焦 IDLE 疊統一深冰夜壓暗幕）
+              .when(Boolean(art), (el) =>
+                el.child(
+                  div()
+                    .absolute()
+                    .right(0)
+                    .top(0)
+                    .w(ART_W)
+                    .h(ART_H)
+                    .overflow_hidden()
+                    .child(image(art).absolute().left(0).top(0).w(ART_W).h(ART_H).opacity(artOpacity))
+                    .when(isDimIdle, (slot) => slot.child(div().absolute().inset_0().bg("#080e185c")))
+                    .child(
+                      div()
+                        .absolute()
+                        .left(0)
+                        .right(0)
+                        .top(0)
+                        .h(14)
+                        .child(
+                          window
+                            .paint_path(
+                              rectPath(),
+                              Background.linear_gradient(
+                                180,
+                                Background.stop(hex8(skin.plate, "88"), 0),
+                                Background.stop(hex8(skin.plate, "00"), 1),
+                              ).color_space("oklab"),
+                            )
+                            .absolute()
+                            .top(0)
+                            .left(0)
+                            .size_full(),
+                        ),
                     ),
                 ),
               )
-              .when(card.count > 0, (row) => row.child(this.squadChip(a, card, t)))
-              .child(statusBadge(a.status, statusColor, t)),
+              .when(!art, (el) => el.child(unknownArtSlot()))
+              // 左向乾淨羽化過渡
+              .when(Boolean(art), (el) => el.child(fadeLayer(skin.plate, 90)))
+              // 狀態薄霧在羽化之上、文字之下
+              .when(Boolean(mist), (el) => el.child(div().absolute().inset_0().bg(mist)))
+              // 內艙細線與克制像素角飾
+              .when(skin.style === "double" || skin.style === "ornate", (el) =>
+                el.child(
+                  div()
+                    .absolute()
+                    .inset_0()
+                    .rounded(0)
+                    .border(1)
+                    .border_color((skin.inner || skin.line)[si]),
+                ),
+              )
+              .when(Boolean(skin.cornerDots), (el) => el.children(cornerPixels(skin.outer[si], 2, 2)))
+              .when(Boolean(skin.pixelCorners), (el) => el.children(cornerPixels(skin.pixelCorners[si], 1, 2)))
+              .when(Boolean(skin.cornerMotif), (el) =>
+                el.children(
+                  [
+                    { left: 1, top: 1 },
+                    { right: 1, top: 1 },
+                    { left: 1, bottom: 1 },
+                    { right: 1, bottom: 1 },
+                  ].map((pos) => {
+                    let blk = div()
+                      .absolute()
+                      .size(4)
+                      .bg(skin.inner[si])
+                      .child(div().absolute().left(1).top(1).size(2).bg(skin.plate));
+                    if (pos.left !== undefined) blk = blk.left(pos.left);
+                    if (pos.right !== undefined) blk = blk.right(pos.right);
+                    if (pos.top !== undefined) blk = blk.top(pos.top);
+                    if (pos.bottom !== undefined) blk = blk.bottom(pos.bottom);
+                    return blk;
+                  }),
+                ),
+              )
+              // 側脊 / 品牌實條 / 4 角像素釘
+              .when(Boolean(spine), (el) => el.child(spine))
+              .when(Boolean(skin.leftBar), (el) =>
+                el.child(div().absolute().left(0).top(0).bottom(0).w(4).bg(skin.leftBar[si])),
+              )
+              .when(Boolean(skin.nails), (el) => el.children(cornerPixels(skin.outer[si], 3, 2)))
+              // 主從分明內艙排版：主角模型橫幅（left 10, top 18, w 160）+ 副信息 Effort（left 10, top 44, h 14）。
+              .child(
+                div()
+                  .absolute()
+                  .left(10)
+                  .top(18)
+                  .child(modelBanner(family, model, rawModel, fallbackLabel, t)),
+              )
+              .when(Boolean(effortRow), (el) =>
+                el.child(div().absolute().left(10).top(44).child(effortRow)),
+              )
+              // CLI 內角小徽記：Claude ✻ / Qwen ✧ / Kimi ☾ / Gemini 雙星。
+              .when(Boolean(skin.bottomRight), (el) =>
+                el.child(
+                  div()
+                    .absolute()
+                    .right(5)
+                    .bottom(4)
+                    .text_size(9)
+                    .text_color(skin.bottomRightColor[si])
+                    .child(skin.bottomRight),
+                ),
+              )
+              .when(Boolean(skin.stars), (el) =>
+                el
+                  .child(div().absolute().left(5).bottom(4).text_size(9).text_color(skin.stars[0]).child("✦"))
+                  .child(div().absolute().right(5).bottom(4).text_size(9).text_color(skin.stars[1]).child("✦")),
+              )
+              // Blocked 的琥珀呼吸警框（rounded(0)）。
+              .when(a.status === "blocked", (el) =>
+                el.child(
+                  div()
+                    .absolute()
+                    .inset_0()
+                    .rounded(0)
+                    .border(2)
+                    .border_color(t.blocked)
+                    .loop("opacity", { from: 0.25, to: 0.95, period: 1100, easing: "ease-in-out" }),
+                ),
+              ),
+          )
+          // 四態底槽動效（貼齊外框底邊 y=106 內側 bottom(1)，精確銜接於 Space 挖槽右側 x=152..right-1）
+          .when(a.status === "working", (el) => el.child(workingTrack(TRACK_START_IN_PLATE)))
+          .when(a.status === "blocked", (el) => el.child(blockedSlash(TRACK_START_IN_PLATE)))
+          .when(a.status === "done", (el) =>
+            el.child(div().absolute().left(TRACK_START_IN_PLATE).right(1).bottom(1).h(2).bg("#7fd8a866")),
+          )
+          // 聚焦/Blocked 時點亮與底部階梯托架+挖槽一致的外輪廓框
+          .when(Boolean(unifiedOutline), (el) =>
+            el.child(div().absolute().inset_0().rounded(0).border(1).border_color(unifiedOutline)),
+          ),
+      )
+      // 名片底邊齊平方形挖槽：嚴格底對齊 y = PLATE_BOTTOM，絕不下凸破框，底邊敞口遮平底線。
+      .child(
+        div()
+          .absolute()
+          .left(PLATE_X + NOTCH_LEFT_IN_PLATE)
+          .top(PLATE_BOTTOM - NOTCH_H)
+          .child(spaceNotch(a, this.places, spaceName, notchBorder)),
+      )
+      // 底部階梯像素托架（━━┓┗━━）：腳底托盤 (y=74, x=4..54) -> 右折下探 (x=52, y=74..107) -> 底邊直連 (y=105..107, x=52..65)。
+      .child(
+        div()
+          .absolute()
+          .left(TRAY_X)
+          .top(TRAY_Y)
+          .w(TRAY_W)
+          .h(2)
+          .bg(lStep.line)
+          .child(div().absolute().left(0).right(0).top(0).h(1).bg(lStep.hi)),
+      )
+      .child(
+        div()
+          .absolute()
+          .left(DROP_X)
+          .top(TRAY_Y)
+          .w(2)
+          .h(PLATE_BOTTOM - TRAY_Y)
+          .bg(lStep.line),
+      )
+      .child(
+        div()
+          .absolute()
+          .left(DROP_X)
+          .top(PLATE_BOTTOM - 2)
+          .w(PLATE_X + 1 - DROP_X)
+          .h(2)
+          .bg(lStep.line)
+          .child(div().absolute().left(2).right(0).top(0).h(1).bg(lStep.hi)),
+      )
+      // 左列企鵝立繪（48x64 穩踩在 y=74 水平托盤線上）
+      .child(
+        div()
+          .absolute()
+          .left(4)
+          .top(SPRITE_TOP)
+          .w(SPRITE_W)
+          .h(SPRITE_H)
+          .child(portrait(a, this.assigned, t)),
+      )
+      // 托盤下方無框 # Tab 標籤（y=80..100，x=4..50 窩在階梯折線左側，與右側 Space 挖槽呼應）
+      .child(
+        h_flex()
+          .absolute()
+          .left(4)
+          .top(TAB_ROW_TOP)
+          .w(46)
+          .h(TAB_ROW_H)
+          .gap(2)
+          .items_center()
+          .justify_center()
+          .tooltip(hashTab)
+          .when(state === "focused" || state === "blocked", (el) =>
+            el.child(
+              div()
+                .flex_none()
+                .font_family(MONO_FONT)
+                .text_size(9)
+                .font_bold()
+                .text_color(lStep.arrow)
+                .child("▸"),
+            ),
           )
           .child(
-            h_flex()
-              .relative()
-              .w_full()
+            div()
               .min_w(0)
-              .h(18)
-              .pl(4)
-              .pr(3)
-              .gap(3)
-              .items_center()
-              .rounded(4)
-              .bg(withAlpha(t.canvas, "cc"))
-              .border(1)
-              .border_color(plateBorder)
-              .child(div().absolute().left(0).top(0).bottom(0).w(2).bg(statusColor))
-              .child(agentBadge(info, t))
-              .child(
-                h_flex()
-                  .flex_1()
-                  .min_w(0)
-                  .gap(2)
-                  .items_center()
-                  .child(div().flex_none().text_size(8.5).text_color(t.accent).child("◈"))
-                  .child(div().flex_1().min_w(0).truncate().text_size(8.5).text_color(model ? t.foreground : t.dim).child(modelLine)),
-              ),
+              .truncate()
+              .font_family(MONO_FONT)
+              .text_size(9.5)
+              .when(state === "focused" || state === "blocked", (el) => el.font_semibold())
+              .text_color(lStep.fg)
+              .child(hashTab),
           ),
+      )
+      // 騎框徽章層（在外框之後，才不會被 overflow_hidden 裁掉）。
+      .child(
+        div()
+          .absolute()
+          .left(PLATE_X)
+          .top(0)
+          .w(PLATE_W)
+          .h(24)
+          .flex()
+          .items_center()
+          .justify_between()
+          .child(div().ml(6).child(agentBadge(info, t, focused, skin)))
+          .child(
+            h_flex()
+              .mr(6)
+              .gap(4)
+              .items_center()
+              .when(card.count > 0, (el) => el.child(this.squadChip(a, card, t)))
+              .child(statusBadge(a.status, t)),
+          ),
+      )
+      // 拖曳插入線：往下拖畫在目標下緣，往上拖畫在目標上緣。
+      .when(dropLine, (el) =>
+        el.child(
+          div()
+            .absolute()
+            .left(4)
+            .right(4)
+            .h(2)
+            .bg(t.accent)
+            .when(this.pressed < card.i, (line) => line.bottom(0))
+            .when(this.pressed > card.i, (line) => line.top(0)),
+        ),
       );
-  }
-
-  spriteNode(a, i, m, t, y) {
-    const spriteX = m.offsets[i % m.offsets.length];
-    return div()
-      .id(`traveler-sprite-${a.address}`)
-      .absolute()
-      .left(spriteX)
-      .top(y)
-      .w(SPRITE_W)
-      .h(SPRITE_H)
-      .cursor_pointer()
-      .on_hover((on, cx) => {
-        if (on) this.hovered = a.address;
-        else if (this.hovered === a.address) this.hovered = null;
-        cx.notify();
-      })
-      .on_click(() => run("agent.focus", { terminal: a.address }))
-      .child(portrait(a, this.assigned, t));
   }
 
   rail(list, t) {
@@ -648,15 +1502,16 @@ export default class Traveler extends View {
     const kids = this.childIndex(compactRail ? [] : terminals());
     const nested = new Set();
     for (const a of base) for (const s of this.subtree(kids, a.address)) nested.add(s.k.address);
-    const list = base.filter((a) => a.pinned || !nested.has(a.address));
+    // 使用者拖出來的順序優先；沒記錄過的（新 agent）排在已知的後面。
+    const list = this.applyOrder(base.filter((a) => a.pinned || !nested.has(a.address)));
     this.listed = new Map(base.map((a) => [a.address, a.status]));
     this.focusedAgent = base.find((a) => a.focused)?.address ?? null;
     // 折疊狀態只清掉真的消失的父母；窄側邊欄沒有折疊 UI，不要因此清光。
     if (!compactRail) for (const key of this.folded) if (!kids.has(key)) this.folded.delete(key);
-    setAgentOrder(list.map((a) => a.address));
+    this.shownAddrs = list.map((a) => a.address);
+    setAgentOrder(this.shownAddrs);
 
-    const m = stackMetrics(list.length, this.panelH);
-    const plan = compactRail ? { cards: [], subs: [], stubs: [], totalH: 0 } : this.stackLayout(list, kids, m);
+    const plan = compactRail ? { cards: [], subs: [], stubs: [], totalH: 0 } : this.stackLayout(list, kids);
 
     return v_flex()
       .id("traveler")
@@ -696,10 +1551,11 @@ export default class Traveler extends View {
                   .h(15)
                   .items_center()
                   .justify_center()
-                  .rounded(4)
+                  .rounded(0)
                   .border(1)
                   .border_color(withAlpha(t.border, "66"))
                   .bg(withAlpha(t.canvas, "bb"))
+                  .font_family(MONO_FONT)
                   .text_size(10)
                   .text_color(t.accent)
                   .child(`[${list.length}]`),
@@ -709,8 +1565,18 @@ export default class Traveler extends View {
             v_flex()
               .flex_1()
               .min_h(0)
-              .p(6)
+              .px(8)
+              .pb(8)
+              .pt(2)
               .overflow_y_scrollbar()
+              // 拖到卡片外才放開：清掉殘留的拖曳狀態，卡片不會一直半透明。
+              .on_mouse_up("left", (_e, cx) => {
+                if (this.pressed !== null || this.over !== null) {
+                  this.pressed = null;
+                  this.over = null;
+                  cx.notify();
+                }
+              })
             .when(list.length > 0, (sc) =>
               sc.child(
                 div()
@@ -718,10 +1584,9 @@ export default class Traveler extends View {
                   .w_full()
                   .h(plan.totalH)
                   .flex_none()
-                  .children(plan.cards.map((c) => this.cardPlate(c.a, c.i, m, t, c)))
+                  .children(plan.cards.map((c) => this.cardPlate(c.a, t, c)))
                   .children(plan.stubs.map((s) => div().absolute().left(s.x).top(s.y).w(2).h(s.h).bg(withAlpha(t.accent, "55"))))
-                  .children(plan.subs.map((s) => this.subRow(s, t)))
-                  .children(plan.cards.map((c) => this.spriteNode(c.a, c.i, m, t, c.y))),
+                  .children(plan.subs.map((s) => this.subRow(s, t))),
               ),
             )
             .when(list.length === 0, (sc) =>
