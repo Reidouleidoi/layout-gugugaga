@@ -1,105 +1,95 @@
 # Gugugaga
 
-A Herdr window rebuilt as an arctic pixel base: the sidebar becomes an igloo-lit outline tree of machines and spaces, agents are "party members" with animated full-body sprites and a status plate, tabs carry the same face and status pill, and the whole thing sits on a deep ice-blue theme. Windows-first, macOS-aware.
+A Herdr window rebuilt as an **Obsidian Pixel Deck**: neutral charcoal-obsidian surfaces (`#07090d` / `#0b0e14` / `#10141c`), zero-radius `rounded(0)` frames, 4-tier responsive sidebar shrinking (`320px → 196px → 44px` rail), unified *Party* showcase cards across 10 CLI frame skins × 8 model portraits × 3-state penguin sprites, a custom `28px` split-pane header (`gugugaga-pane`), and integrated soft-wrapping `Files` / `Changes` panels with right-click open/reveal (`gugugaga-files`). Windows-first, macOS-aware.
 
 ![Gugugaga](preview.png)
 
 ## What you see
 
-One row holding a 320px sidebar and the work column beside it. Inside the work column, top to bottom: the 58px tab bar, the terminal card, and a 28px status bar. Everything is drawn inside 1px dividers on the canvas color `#0b1018`, with terminal padding of 14 horizontal and 12 vertical.
+One row holding a resizable `320px` sidebar and the work column beside it. Inside the work column, top to bottom: the `58px` tab bar, the `work-body` row (`6px` padding, `6px` gap) holding split terminal panes and the collapsible right-hand side panel, and a `28px` status bar. Root background is canvas `#07090d` with `1px` `#232a36` dividers and `[12, 10]` terminal padding.
 
-**Sidebar (320px wide, min 44, max 480, not user-resizable by dragging its edge).** Its background is a pixel night scene, `mods/gugugaga-chrome/sidebar-gugugaga.png`, drawn `cover` behind the panels.
+**Sidebar (320px wide, min 44, max 480, `resizable: true`).** Solid obsidian background (`#10141c` chrome / `#07090d` canvas, no background wallpaper).
 
-- **Brand strip, 46px:** a 20px pixel face (`mods/gugugaga-agents/art/gugugaga/a1.png`), the "Herdr" wordmark in 13.5px semibold, then two 26px icon buttons: search (opens the picker) and sidebar toggle.
-- **Spaces (upper half of the list area, weight 1, min 90):** a pixel outliner, headed by `Spaces` in 11px accent and a 24px `+` button. Each machine is a 28px row: a 2px accent bar, the 13px `bullet-open.svg` / `bullet-folded.svg`, a 13px device icon (`device-local.svg` for this computer, `device-remote.svg` for an SSH machine), a `▾`/`▸`, the machine name in 10.5px semibold, its state when it is not connected, a `[n]` count, a `+` and a 7px square in its status color. Spaces hang under the row on a 2px trunk at x=9, joined by a 7x2px branch, with a 7x7px node for the space you are on and a 5x5px one for the rest. Each space shows a 42x42 pixel building in a 46x46 frame (picked from a pool of four: `igloo`, `lighthouse`, `fishshop`, `iceberg`), its name (11px, `max_w` 150px inside a machine group or 176px ungrouped, semibold when it is the one shown), the git branch, and changed/untracked counts. A machine with no spaces gets a single "+ New space there" row instead; a machine that has spaces does not.
-- **Party, the agents list (lower half, weight 1, min 90):** a header `Party` in 11px accent plus a `[n]` chip, then one unified 109px showcase card per agent (`CARD_STEP` 117px). Each card pairs a 56px left sprite lane (a 48x64 penguin on a 2px `━━┓┗━━` step rail above a frameless `#Tab` label) with a 240×96 sharp-corner pixel nameplate (`PLATE_TOP` 11px) separating **CLI skin × Model portrait × Runtime status**: riding CLI & status/squad badges across the top edge, a 160px model banner with 12×12 vendor logo, a 5-cell 3×4 pixel Effort meter + optional custom session/tab subtitle underneath, a right-aligned 112×90 model portrait (with deep-night `IDLE` dimming, widened left scrim, 5px top clearance, and `gugugaga.png` as the unknown-model fallback), and a flush 142×19 bottom-edge Space notch next to a bottom-track status bar.
-- **Footer, 69px:** two rows on the chrome color with a 1px top border — Settings (with a small dot when an update is ready) and Add machine.
+- **Brand strip, 46px:** a 20px pixel face (`mods/gugugaga-agents/art/gugugaga/a1.png`) inside a `24×24` `rounded(0)` dark slot, the "Herdr" wordmark in 13.5px semibold, then two 26px `rounded(0)` icon buttons: search (opens the picker) and sidebar toggle.
+- **Spaces (upper half of the list area, weight 1, min 90):** a sharp pixel outliner, headed by `SPACES` in `Cascadia Mono` 10.5px bold + `[n]` count chip and a `22×22` `+` button. Each machine is a `26px` `rounded(0)` row (`#10141c`, `1px` `#232a36` border): a `2px` charcoal bar, `▸`/`▾`, `13px` device icon (`device-local.svg` / `device-remote.svg`), machine name, `[n]` chip, `+` button (hidden when `blockW < 230`), and a `5×5` status square. Spaces hang under neutral charcoal (`#3a4559`) trunk lines; only the active space's branch and `7×7` node light up in `accent` (`#38bdf8`). Each space shows a pixel landmark (`igloo`, `lighthouse`, `fishshop`, `iceberg`) inside a `46×46` (`34×34` when `blockW < 230`) `rounded(0)` `#07090d` slot, its flex-1 truncated name, git branch, and dirty/ahead counts in `Cascadia Mono`.
+- **Party, the agents list (lower half, weight 1, min 90):** a header `Party` + `[n]` chip and a `18×18` `[||]` quick-shrink toggle (`320px ↔ 196px`), then `109px` showcase cards (`CARD_STEP` `117px`). Each card pairs a `56px` left sprite lane (`48×64` penguin on a `2px` `━━┓┗━━` step rail above a frameless `#Tab` label) with a responsive `rounded(0)` pixel nameplate (`PLATE_TOP` `11px`, `plateW = clamp(round(panelW - 16 - 64), 80, 320)` using `panelW = size.width / zoom`):
+  - `panelW >= 272`: Full showcase with `112×90` model portrait + dynamically right-anchored `fadeLayer`.
+  - `228 <= panelW < 272`: Portrait & scrim cleanly collapsed; keeps subtle `modelBacking` glow.
+  - `160 <= panelW < 228`: Compact nameplate down to `layout…` (`notchW` shrinks to `56..142`), icon-only status clasp below `plateW < 192`, logo-only CLI clasp below `plateW < 156` (or `< 176` with squad chip), adaptive bottom track (`>= 24px`).
+  - `panelW < 160`: Switches to `52×68` pixel rail cards.
+- **Footer, 69px:** two `rounded(0)` rows on solid chrome with a `1px` top border — Settings (with a `6×6` square dot when an update is ready) and Add machine.
 
 **Work column.**
 
-- **Tab bar, 58px:** each tab is a 48px card with a 2px strip across its top (accent when it is the tab you are on, amber when it is blocked) holding a 40x40 character portrait (a 32x42 sprite when there is no still), a 16px agent crest (an 11px glyph in a tinted slot), the tab name at 12.5px, and a status pill (9.5px label in a 15px pill tinted with the status color). To their right, Files, Changes and Inbox buttons and a new-tab `+`, all 26px; on Windows also min/max/close.
-- **Terminal card:** the pane sits in a body with 8px padding and an 8px gap, so every pane is a rounded 8px card with a 1px `#ffffff14` border; the focused pane gets a 1px accent outline and a 30px header strip holding the pane title.
-- **Side panel, 368px (min 280, max 900), hidden until you press one of its buttons:** a stack of Files, Changes and Inbox.
+- **Tab bar, 58px:** `48px` `rounded(0)` cards with a `2px` top semantic strip (CLI color when active, amber when blocked) + bottom `2×2` corner studs, `40×40` character portrait, `16×16` CLI slot, tab name, and `Cascadia Mono` uppercase status pill (`WORKING` / `NEEDS YOU` / `DONE` / `IDLE`). To their right, partitioned by `1px × 16px` vertical dividers: `+`, `FILES` / `CHANGES` / `INBOX` (`26px` `rounded(0)` buttons using `14×14` monochrome SVGs from `gugugaga-chrome` + active bottom bar), and Windows min/max/close buttons.
+- **Split terminal panes:** `6px` padding and `6px` gap; every pane is a sharp `radius: 0` card (`1px` `#232a36` border, `1px` `accent` when focused) topped by a `28px` `gugugaga-pane` header: `2px` top bar (`blocked` pulsing amber > `focused` CLI color) + `2×2` corner studs when focused, `16×16` CLI badge, short name + terminal address chip (`t125`), last directory + optional branch (`paneW >= 360`), `2×3` pixel grip when `movable`, `↓N` scroll-bottom badge, `STATUS_SKIN` pill (icon-only when `< 280px`), `[Z]` zoom tag, and `20×20` hover split/zoom/close buttons.
+- **Side panel, 368px (min 280, max 900, hidden until toggled):** `panel-body` stack of `Files`, `Changes` (`gugugaga-files`), and `Inbox` (`inbox`), all sharing `1px` `#232a36` outer borders and `36px` `Cascadia Mono` headers.
 
-**Status bar, 28px:** Herdr's own workspace status, restyled only by the theme.
+**Status bar, 28px:** Herdr's built-in `workspace-status`, restyled by `gugugaga-obsidian`.
 
-**Colors** come from the theme `gugugaga-ice`: canvas `#0b1018`, chrome and surface `#141b27`, raised `#1c2533`, border `#ffffff14`, text `#e9eef5` with muted `#a3afbf` and dim `#6b7686`, accent `#8ccaff`, amber `#ffb547`, selection `#26344a`. Status colors: working `#8ccaff`, blocked `#ffb547`, done `#7fd8a8`, idle `#5d6878`. The terminal itself is `#0f1520` with a `#ffb547` cursor and full opacity.
+**Colors** come from `themes/gugugaga-obsidian.json`: canvas `#07090d`, terminal background `#0b0e14`, chrome/surface/popover `#10141c`, raised/input `#171c26`, border `#232a36`, text `#e6ebf2` with muted `#94a0b2` and dim `#5c6676`, accent `#38bdf8`, solid/blocked `#ffb547`, selection `#1d2d44`, selected `#38bdf81c`. Status colors: working `#38bdf8`, blocked `#ffb547`, done `#6ee7b7`, idle `#525d6e`. Legacy `themes/gugugaga-ice.json` remains in `themes/` for backward compatibility.
 
 ## How it behaves
 
-Four states drive everything — the sprite, the card badge, the tab pill, the squad chip and the toast all read the same status:
+Four states drive everything — sprite, card badge, tab pill, pane top bar, squad chip, and toast:
 
-| state | sprite | tab mark | color |
+| state | sprite | tab / pane mark | color |
 | --- | --- | --- | --- |
-| working | `sprites/gugugaga/w/*.gif`, 4 frames at 160ms each | `▘▝▗▖` cycling every 140ms | accent `#8ccaff` |
-| blocked | `b/*.gif`, 4 frames at 320ms each | `!` blinking (600ms in the cards, 450ms in the tabs and toast) | amber `#ffb547` |
-| done | `r/*.gif` (the rest cycle) | `✓` | green `#7fd8a8` |
-| idle | `r/*.gif`, 4 frames at 1800/140/900/700ms, so one loop takes 3.5s | `▪` | dim `#5d6878` |
+| working | `sprites/gugugaga/w/*.gif`, 4 frames at 160ms | `▘▝▗▖` cycling every 140ms | accent `#38bdf8` |
+| blocked | `b/*.gif`, 4 frames at 320ms | `!` blinking | amber `#ffb547` |
+| done | `r/*.gif` | `✓` | green `#6ee7b7` |
+| idle | `r/*.gif`, 4 frames (~3.5s loop) | `▪` | dim `#525d6e` |
 
-- **Clicks & drag-reorder.** Left-click on a card focuses the agent (`agent.focus`); dragging a card onto another reorders the Party list and persists `agents.order` in `localStorage`. A squad row focuses that terminal's pane (`pane.focus`) or, for a helper without a pane of its own, peeks at it (`terminal.peek`). The squad chip (`▾`/`▸` + count) folds and unfolds its children and takes the color of the most urgent child. A tab selects, drags to reorder (`tab.move`), double-clicks to rename, right-clicks into a popup menu, and shows a close `x` only on the active tab. The Files/Changes/Inbox buttons show, swap and hide the side panel.
-- **Spaces.** Click selects, drag reorders (`space.move`), right-click opens the space menu; the machine row collapses its spaces; `+ New space there` makes a space on that machine and `+ Add machine` opens the add-machine flow.
-- **Sidebar toggle.** The rail goes by width, not a flag: below 160px the sidebar is "collapsed", so it shrinks to 44px (76 on macOS, room for the traffic lights) and remembers the width it had in shared state (defaulting to 320px on restore).
-- **Sub-agents.** Children come from `terminals().parent`, not from the agents list. Each is one 17px row with a 2px trunk aligned at x=27 under the `#Tab` label, a 9x2 branch and a 5px node in its status color, indented 12px per depth up to 3 depths (`DEPTH_MAX = 3`); a child that reports `error` reads as blocked and a child never claims done.
-- **Unified showcase lane.** All Party cards share the same 109px showcase layout with the sprite fixed on the left and the 240×96 nameplate on the right—there is no two-lane stagger, and subagent rows attach directly beneath each parent card.
-- **Toast.** A status change slides a pixel nameplate: a 2px colored top bar, four 2px corner studs, a 40px framed avatar (portrait, sprite, or the program icon), the title and body, and a status badge. It is clickable when it carries an action, and a machine that needs a login reads "`<machine>` needs a login: run" so the command can be copied.
-- **The inbox panel** lists what is in `data/inbox/files` with a kind badge, size and time; a click opens the file with the system default app, right-click copies it to the Desktop without overwriting, or moves it to the trash where it can still be recovered.
+- **Clicks, shrink & drag-reorder.** Left-click focuses (`agent.focus`); dragging reorders Party cards (`localStorage["agents.order"]`). Dragging the sidebar edge resizes continuously across all 4 tiers, and `[||]` snaps between `320px` and `196px`. Subagent rows focus (`pane.focus`) or peek (`terminal.peek`); squad chips (`▾`/`▸` + count) fold children and take the most urgent child's color.
+- **Spaces & Tabs.** Spaces select, drag-reorder (`space.move`), and open `menu`. Tabs select, drag-reorder (`tab.move`), double-click rename, right-click menu, and remember the active side panel per space in `localStorage["panels"]`.
+- **Files & Changes (`gugugaga-files`).** Derived from Herdr 0.1.16 (`Apache-2.0`) + `files-and-changes-addon`: `Files` previews text with `soft_wrap: true`; `Changes` wraps virtual diff rows by zoom-adjusted container width (`localStorage["gugugaga-files/wrap"]`, falling back to `files-and-changes-addon/wrap`) and stages/commits via `git`; right-clicking any local item opens a `frame: "none"` `rounded(0)` popup (`Open with default app` / `Open folder` / `Reveal in File Explorer`, navigable via `↑/↓/Enter/Esc`).
+- **Inbox (`inbox`).** Lists `data/inbox/files`; click opens with default app, right-click copies safely to Desktop or moves to OS Trash/Recycle Bin.
+- **Toast (`gugugaga-toast`).** `rounded(0)` pixel nameplate with `2px` top bar, corner studs, uppercase status badge, and one-click `hc machine login` command copy.
 
 ## Built from
 
-`layouts/gugugaga.json` (200 lines) is Herdr's `main` layout with the sidebar rebuilt:
+`layouts/gugugaga.json` is Herdr's `main` layout (`cloned_from: main 0.1.11`) rebuilt with 8 custom mods:
 
 ```
-root  row  (background canvas, terminal_padding [14,12], divider 1px border,
-            titlebar none, traffic_lights [12,16],
-            toast "gugugaga-toast", theme "gugugaga-ice", terminal_opacity 1)
-├─ sidebar  column  320px, min 44, max 480, resizable false
-│  │  background image mods/gugugaga-chrome/sidebar-gugugaga.png, fit cover
-│  ├─ brand          block {mod: gugugaga-chrome}        46px, window_drag
+root  row  (background canvas #07090d, terminal_padding [12, 10], divider 1px border,
+            titlebar none, traffic_lights [12, 16],
+            toast "gugugaga-toast", theme "gugugaga-obsidian", terminal_opacity 1)
+├─ sidebar  column  320px, min 44, max 480, resizable true
+│  ├─ brand          block {mod: gugugaga-chrome}                    46px, window_drag
 │  ├─ sidebar-lists  column
-│  │  ├─ spaces      block {mod: gugugaga-spaces}  weight 1, min 90
-│  │  └─ agents      block {mod: gugugaga-agents}  weight 1, min 90
-│  └─ sidebar-footer block {mod: gugugaga-chrome, props {footer: true}}  69px
-├─ work  column
-│  ├─ tabs           block {mod: gugugaga-tabs}   58px, window_drag
-│  ├─ work-body      row  padding 8, gap 8
-│  │  ├─ main        block {tab: active, pane {header {content {mod: pane},
-│  │  │                     reveal always, height 30, position top},
-│  │  │                     border 1 #ffffff14, focus 1 accent, radius 8, gap 8,
-│  │  │                     lone true}}
-│  │  └─ panel       column 368px, min 280, max 900, hidden
-│  │     └─ panel-body stack active files
-│  │        ├─ files    block {mod: files}
-│  │        ├─ changes  block {mod: changes}
-│  │        └─ inbox    block {mod: inbox}
-└─ status            block {mod: workspace-status}  28px  (the work column's third child,
-                                                             not the root's)
+│  │  ├─ spaces      block {mod: gugugaga-spaces}                    weight 1, min 90
+│  │  └─ agents      block {mod: gugugaga-agents}                    weight 1, min 90
+│  └─ sidebar-footer block {mod: gugugaga-chrome, props {footer:true}} 69px
+└─ work  column
+   ├─ tabs           block {mod: gugugaga-tabs}                      58px, window_drag
+   ├─ work-body      row  padding 6, gap 6
+   │  ├─ main        block {tab: active, pane {header {content {mod: gugugaga-pane},
+   │  │                     reveal always, height 28, position top},
+   │  │                     border 1 #232a36, focus 1 accent, radius 0, gap 6, lone true}}
+   │  └─ panel       column 368px, min 280, max 900, hidden
+   │     └─ panel-body stack active files
+   │        ├─ files    block {mod: gugugaga-files, props {panel: "files"}}
+   │        ├─ changes  block {mod: gugugaga-files, props {panel: "changes"}}
+   │        └─ inbox    block {mod: inbox}
+   └─ status         block {mod: workspace-status}                   28px
 ```
 
-Keep `toast`, `theme` and `preview` in the root: the toast mod is attached there rather than in a block, and `preview` is the window thumbnail Herdr shows in its layout picker.
-
-Six mods, no `mods/<name>/mod.json` logic beyond `place: none` and `cloned_from` — they all render into blocks or overlays:
-
-- **`gugugaga-chrome`** — one class with two roles chosen by `props().footer`: the brand strip (wordmark, search, collapse) or the footer rows (Settings → `app.settings`, Add machine → `mod.open machine-add`). Owns the sidebar background image and 30 SVG icons.
-- **`gugugaga-spaces`** — the outline tree. Art: `art/gugugaga/{igloo,lighthouse,fishshop,iceberg}.png`, `device-local/remote.svg`, `bullet-open/folded.svg`. Picks a building by name hash unless `mods/gugugaga-spaces/places.json` (a local, untracked file) maps a space to one. Runs `hc machine ls --json` for the machine rows and `git status --porcelain=v2 --branch` plus `git rev-parse --show-toplevel` and `--git-common-dir` (with `--no-optional-locks`, `core.fsmonitor=false`, `safe.bareRepository=explicit`) for branch and dirty counts.
-- **`gugugaga-agents`** — the Party list. Art: 7 portraits `art/gugugaga/a1..a7.png` at 256x256, 21 GIFs `sprites/gugugaga/{r,w,b}` at 144x192 (drawn 48×64), 8 model portraits `art/models/*.png` (drawn 112×90), 9 `12×12` vendor SVG logos `art/vendors/*.svg`, and CLI pixel badges `art/logo-*.svg` across 9 CLIs (`CLI_SKINS` covers 10 sharp-corner pixel frame styles). `lib.js` holds the art pools, `CLI_SKINS`, `MODEL_FAMILIES`, and job/session helpers: optional `mods/gugugaga-agents/jobs.json` maps a tab name to a persona, and `data/traveler/sessions/<address>.json` is read (never written) for model/effort/session name, locally and on `~/.config/herdr-app` of a remote machine. With no cache file it falls back to `hc read <address> --lines 25` and parses the tail of the screen for the model & effort.
-- **`gugugaga-tabs`** — the tab bar: portrait, 9-CLI crest, name, status pill, panel buttons, new-tab `+`, Windows window buttons (`win-min/max/restore/close.svg`), drag and rename. Its own `lib.js` copy scans the sprite folders on init and re-watches them, and polls them every 30s so hand-added art shows up without a restart.
-- **`gugugaga-toast`** — the nameplate overlay described above; reads its own `lib.js` copy (including all 9 CLI crests) and the job cache, and resolves the title from the overlay props, the agent, the space or the tab. Unlike the other two it does not scan the art folders, so it always uses the first asset of each pool.
-- **`inbox`** — the file panel over `data/inbox/files`. On macOS it shells out to `/bin/mkdir -p`, `/usr/bin/find`, `/usr/bin/stat -f %HT`, `/usr/bin/open`, `/bin/cp -n` and `/usr/bin/trash`; on Windows to PowerShell (`Get-ChildItem`, `Invoke-Item`, `Test-Path` + `Copy-Item`, and `Microsoft.VisualBasic.FileIO.FileSystem::DeleteFile` with `SendToRecycleBin`). It never runs `rm`, it overwrites nothing, and a trashed file can be recovered.
-
-`gugugaga-agents`, `gugugaga-tabs` and `gugugaga-toast` each carry their own copy of `lib.js`: they agree on the art paths by convention, not at runtime.
-
-Herdr functions in use: `agents, spaces, terminals, panes, theme, props, layout, run, shared, setShared, settings, updates, window, appHome, home, readTextFile, watchFolder, exec, hc, openOverlay, closeOverlay`, plus `localStorage` for the panel choice and `cx.timer` / `cx.spawn` for polling.
+Keep `toast`, `theme`, and `preview` at root. All 8 mods live under `mods/`:
+- **`gugugaga-chrome`** — brand strip, footer, sidebar width toggle, 30 monochrome SVGs.
+- **`gugugaga-spaces`** — machine/space outliner, git status polling, responsive building tiles (`34px` / `46px`).
+- **`gugugaga-agents`** — 4-tier responsive Party showcase cards, `lib.js` CLI skins & model portraits, 3-level subagent tree.
+- **`gugugaga-tabs`** — `rounded(0)` tab strip, partitioned `FILES`/`CHANGES`/`INBOX` monochrome SVG buttons, window buttons.
+- **`gugugaga-pane`** — `28px` custom split-pane header with CLI bar, corner studs, terminal address badge, movable grip, scroll-bottom, zoom tag, and hover split/zoom/close buttons.
+- **`gugugaga-files`** — soft-wrapping `Files` & `Changes` panels + keyboard-navigable `frame: "none"` right-click popup (derived from Herdr 0.1.16 `Apache-2.0` + `files-and-changes-addon`).
+- **`gugugaga-toast`** — `rounded(0)` pixel notification nameplate overlay.
+- **`inbox`** — `rounded(0)` cross-platform file inbox over `data/inbox/files`.
 
 ## Watch out
 
-- **The sidebar is collapsed by width, not by a flag** (`< 160px`). Rebuild it with a boolean and the rail will fight the drag. The mod also writes the old `sidebar.collapsed` shared key because mods from before the change still read it.
-- **macOS needs its own numbers**: the brand strip gets a 76px left padding for the traffic lights, the tab bar reserves room for the window buttons, and the collapsed width is 76 instead of 44. Ignoring this puts the collapse button under the traffic lights.
-- **Unified 109px cards rely on the 320px sidebar.** The 56px left sprite lane + 8px gap + 240px nameplate require the 320px sidebar width (`PLATE_W = 240`, `ART_W = 112`). Narrowing the sidebar back to 268px clips the nameplate.
-- **Sub-agent rows are not in `agents()`**. Their parent relation only exists on `terminals()`, the indentation depth caps at 3 (`DEPTH_MAX = 3`), and a child that reports `error` has to be read as blocked or it will look idle while it is stuck.
-- **Real programs run**: `hc machine ls --json`, `hc read <address> --lines 25` and three `git` calls (spaces and agents), `mkdir`/`find`/`stat`/`open`/`cp -n`/`trash` or their PowerShell twins (inbox). Nothing reaches the network. The agents mod reads `data/traveler/sessions/*.json`; the inbox reads `data/inbox/files` and writes only to `~/Desktop` and the trash. All of that is outside the mods' own folders.
-- **`jobs.json` and `places.json` are local mappings**, deliberately untracked here: without them every tab and space still gets art, by hash. Do not ship your own mapping as part of the layout.
-- **Type is tiny on purpose**: 13.5px chrome, 11px Party header, 9–9.5px badges. Raising the badge sizes breaks the 58px tab bar and the 64px cards.
-- **Pixel art is integer-scaled by hand**: sprites are drawn 48x64 from 144x192 sources (a clean 3:1 downscale), portraits 48x48 from 256x256, buildings 42x42 from 160x160 — the last one is *not* an integer ratio, which is why the frame is 46x46 and the building is centred in it. Any other zoom softens the art; there is nothing to turn off.
-- **The macOS rail cannot be unfolded.** When the sidebar is narrower than 160px the chrome mod hides its collapse button on macOS (the traffic lights fill that row) and nothing else offers the way back, while the sidebar is not resizable. Until a `»` button is added to the agents rail, macOS users should not collapse it. This was not exercised on macOS, so treat the whole rail as unverified there.
-- **Windows first**: the window buttons, the PowerShell branches in the inbox, and the OneDrive desktop path handling are written for Windows; macOS gets the traffic lights, and the Linux path was not exercised.
-- **The side panel starts hidden**, so a fresh install shows no Files/Changes/Inbox until one of the tab-bar buttons is pressed. That is the layout, not a broken mod.
+- **`on_size_change` reports scaled pixels**: divide `size.width` by `settings().zoom || 1` before applying layout breakpoints (`gugugaga-agents`, `gugugaga-spaces`, `gugugaga-pane`, `gugugaga-files/changes.js`).
+- **Sidebar collapsed by width (`< 160px`)**: `gugugaga-agents`, `gugugaga-spaces`, and `gugugaga-chrome` must share the `< 160` threshold. On macOS, collapsing to `76px` hides the chrome collapse button in the traffic-light row, though `resizable: true` allows dragging the sidebar edge back out.
+- **Keep `#ffb547` exclusive to `blocked`**: normal active states, toggles, and `COMMIT` buttons use `#38bdf8` (`accent`) so blocked alerts never blend in.
+- **`jobs.json` and `places.json` are local untracked overrides**: mods fall back deterministically by name hash when absent.
+- **Four `lib.js` copies**: `gugugaga-agents`, `gugugaga-tabs`, `gugugaga-toast`, and `gugugaga-pane` carry independent copies (mods do not cross-import across directories).
+- **Pixel art integer ratios**: keep `sprites` (`48×64` from `144×192`) and `models` (`112×90` from `224×180`) un-squished.
+- **Side panel starts hidden**: press `FILES`, `CHANGES`, or `INBOX` in the tab bar to open it.

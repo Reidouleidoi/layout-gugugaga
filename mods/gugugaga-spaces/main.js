@@ -5,7 +5,9 @@
 
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, appHome, readTextFile } from "herdr";
+import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, appHome, readTextFile, settings } from "herdr";
+
+const MONO_FONT = "Cascadia Mono";
 
 const GUGUGAGA_PLACES = ["igloo", "lighthouse", "fishshop", "iceberg"];
 const PLACES_FILE = `${appHome()}/mods/gugugaga-spaces/places.json`;
@@ -44,6 +46,32 @@ function keysOf(s, ps) {
 }
 const withAlpha = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
 const rowHeight = ({ tree }) => (tree ? 26 : 54);
+
+// 與 Party [n] 嚴格對稱的計數扣：直角、1px 邊、#07090d 實底、等寬字。
+const countChip = (n, t, size = 10) =>
+  h_flex()
+    .flex_none()
+    .px(4)
+    .h(15)
+    .items_center()
+    .justify_center()
+    .rounded(0)
+    .border(1)
+    .border_color(t.border)
+    .bg(t.canvas)
+    .font_family(MONO_FONT)
+    .text_size(size)
+    .text_color(t.accent)
+    .child(`[${n}]`);
+
+// 像素角釘：右下/右上各一块 2x2。
+const cornerNails = (color) => [
+  div().absolute().right(1).top(1).size(2).bg(color),
+  div().absolute().right(1).bottom(1).size(2).bg(color),
+];
+// 树状连接线中性色：主树干/横枝/未选中节点一个不抢眼。
+const TRUNK = "#2b3444";
+const BRANCH = "#3a4559";
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
 // Changes made outside Herdr (an editor's save, a commit in another app): looked
@@ -85,6 +113,7 @@ export default class Spaces extends View {
     this.pressed = null;
     this.over = null;
     this.machines = [];
+    this.blockW = 0;
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
@@ -274,9 +303,9 @@ export default class Spaces extends View {
             .w(16)
             .flex_none()
             .relative()
-            .child(div().absolute().left(9).top(-3).h(18).w(2).bg(withAlpha(t.accent, "66")))
-            .child(div().absolute().left(9).top(13).w(6).h(2).bg(withAlpha(t.accent, "66")))
-            .child(div().absolute().left(11).top(11).size(5).bg(withAlpha(t.accent, "99")).border(1).border_color(t.canvas)),
+            .child(div().absolute().left(9).top(-3).h(18).w(2).bg(BRANCH))
+            .child(div().absolute().left(9).top(13).w(6).h(2).bg(BRANCH))
+            .child(div().absolute().left(11).top(11).size(5).bg(TRUNK).border(1).border_color(t.canvas)),
         )
         .child(div().flex_1().min_w(0).child(child));
     return machineNames.flatMap((m, mIdx) => {
@@ -285,6 +314,8 @@ export default class Spaces extends View {
       const connected = !m || machine?.state === "connected";
       const folded = this.folded.has(m);
       const showChildren = !folded && !collapsed;
+      // 196px 以下收起每台机器的 + 按鈕，讓機器名完整；空態行的 + New space there 仍在。
+      const tightHead = this.blockW > 0 && this.blockW < 230;
       const head = h_flex()
         .id(`machine-${m ?? "local"}`)
         .relative()
@@ -293,10 +324,10 @@ export default class Spaces extends View {
         .when(!collapsed, el => el
           .mt(mIdx > 0 ? 5 : 1)
           .pr(6)
-          .rounded(4)
-          .bg(withAlpha(t.raised, "88"))
+          .rounded(0)
+          .bg(t.surface)
           .border(1)
-          .border_color(t.border)
+          .border_color("#232a36")
           .gap(4)
           .items_center()
           .text_size(11.5)
@@ -311,28 +342,13 @@ export default class Spaces extends View {
         })
         .when(collapsed, el => el.child(image(`mods/gugugaga-spaces/art/${m ? "device-remote" : "device-local"}.svg`).size(14).flex_none()))
         .when(!collapsed, el => el
-          .child(div().w(2).h_full().flex_none().bg(withAlpha(t.accent, "88")))
-          .child(image(`mods/gugugaga-spaces/art/${folded ? "bullet-folded" : "bullet-open"}.svg`).size(13).flex_none())
+          .child(div().w(2).h_full().flex_none().bg("#2b3444"))
           .child(image(`mods/gugugaga-spaces/art/${m ? "device-remote" : "device-local"}.svg`).size(13).flex_none())
-          .child(div().flex_none().text_size(10.5).text_color(t.accent).child(folded ? "▸" : "▾"))
+          .child(div().flex_none().font_family(MONO_FONT).text_size(10.5).text_color(folded ? t.dim : t.accent).child(folded ? "▸" : "▾"))
           .child(div().flex_1().min_w(0).truncate().font_semibold().child(m ?? "This computer"))
           .when(!connected, el => el.child(div().flex_none().text_size(10).text_color(t.dim).child((machine?.state ?? "asleep").replace(/_/g, " "))))
-          .child(
-            h_flex()
-              .flex_none()
-              .px(4)
-              .h(15)
-              .items_center()
-              .justify_center()
-              .rounded(4)
-              .border(1)
-              .border_color(withAlpha(t.border, "66"))
-              .bg(withAlpha(t.canvas, "bb"))
-              .text_size(10)
-              .text_color(t.accent)
-              .child(`[${mine.length}]`),
-          )
-          .when(connected, el => el.child(
+          .child(countChip(mine.length, t))
+          .when(connected && !tightHead, el => el.child(
             div()
               .id(`machine-add-${m ?? "local"}`)
               .size(16)
@@ -340,18 +356,19 @@ export default class Spaces extends View {
               .flex()
               .items_center()
               .justify_center()
-              .rounded(4)
+              .rounded(0)
               .border(1)
-              .border_color(withAlpha(t.border, "88"))
-              .bg(withAlpha(t.surface, "99"))
+              .border_color("#232a36")
+              .bg(t.chrome)
+              .font_family(MONO_FONT)
               .text_size(11)
               .text_color(t.dim)
               .hover(s => s.bg(t.hover).border_color(t.accent).text_color(t.foreground))
               .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", { machine: m ?? "" }); })
               .child("+"),
           ))
-          .child(div().size(7).flex_none().border(1).border_color(t.canvas).bg(connected ? t.ansi2 : t.dim))
-          .when(showChildren, el => el.child(div().absolute().left(9).bottom(0).w(2).h(7).bg(withAlpha(t.accent, "66")))));
+          .child(div().size(5).flex_none().rounded(0).bg(connected ? t.done : t.dim))
+          .when(showChildren, el => el.child(div().absolute().left(9).bottom(0).w(2).h(7).bg(BRANCH))));
       const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(8).gap(7).items_center()
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => run("space.new", { machine: m ?? "" }))
@@ -371,15 +388,15 @@ export default class Spaces extends View {
   // Only what's unusual, after the name: "herdr \u00b7 spike \u21912 \u21931". The repo or
   // branch goes when the name already says it (a worktree is named after its branch),
   // and master/main go: nearly every space is on one.
-  gitTail(g, tree, name, t) {
+  gitTail(g, tree, name, t, maxW = 0) {
     const raw = g.branch ?? "detached";
     const same = (a) => a.toLowerCase() === name.toLowerCase();
     const branch = same(raw) || raw === "master" || raw === "main" ? "" : raw;
     const repo = tree || same(g.name) ? "" : g.name;
     const where = [repo, branch].filter(Boolean).join(" \u00b7 ");
     return h_flex()
-      .flex_1()
-      .min_w(0)
+      .flex_none()
+      .when(maxW > 0, (el) => el.max_w(maxW))
       .gap(5)
       .justify_end()
       .items_center()
@@ -427,12 +444,12 @@ export default class Spaces extends View {
     }
     if (items.length === 0) return [];
     if (items.length === 1) {
-      return [div().truncate().text_size(11).text_color(items[0].color).child(items[0].full)];
+      return [div().truncate().font_family(MONO_FONT).text_size(9.5).text_color(items[0].color).child(items[0].full)];
     }
     const parts = [];
     items.forEach((item, idx) => {
-      if (idx > 0) parts.push(div().flex_none().text_size(11).text_color(t.dim).child("·"));
-      parts.push(div().min_w(0).truncate().text_size(11).text_color(item.color).child(item.short));
+      if (idx > 0) parts.push(div().flex_none().font_family(MONO_FONT).text_size(9.5).text_color(t.dim).child("·"));
+      parts.push(div().min_w(0).truncate().font_family(MONO_FONT).text_size(9.5).text_color(item.color).child(item.short));
     });
     return [h_flex().min_w(0).gap(5).items_center().overflow_hidden().children(parts)];
   }
@@ -440,19 +457,22 @@ export default class Spaces extends View {
   row({ w, i, g, sum, tree, inGroup = false, isLastInGroup = false }, t) {
     const on = w.active;
     const h = rowHeight({ tree });
+    // 196px 侧栏下用 34x34 建筑槽，两块都同样干练；行高不变。
+    const tight = this.blockW > 0 && this.blockW < 230;
     const card = v_flex()
       .relative()
       .id(`space-${w.id}`)
-      .when(inGroup, el => el.flex_1().min_w(0))
       .px(tree ? 8 : 6)
       .h(h)
-      .flex_none()
+      // 群組內吃滿剩餘寬度（舊版先 flex_1 又被 flex_none 蓋掉，卡片只跟內容一樣寬）。
+      .when(inGroup, (el) => el.flex_1().min_w(0))
+      .when(!inGroup, (el) => el.flex_none())
       .justify_center()
-      .rounded(6)
-      .when(!tree && on, (el) => el.bg(withAlpha(t.raised, "d8")).border(1).border_color(t.accent))
-      .when(!tree && !on, (el) => el.bg(withAlpha(t.surface, "88")).border(1).border_color(withAlpha(t.border, "55")).hover((s) => s.bg(t.hover).border_color(t.border)))
-      .when(Boolean(tree) && on, (el) => el.bg(withAlpha(t.surface, "c8")).border(1).border_color(t.accent))
-      .when(Boolean(tree) && !on, (el) => el.hover((s) => s.bg(t.hover)))
+      .rounded(0)
+      .when(on, (el) => el.bg("#131823").border(1).border_color(t.accent).children(cornerNails(t.accent)))
+      .when(!on, (el) => el.bg("#0c1017").border(1).border_color("#1e2430").hover((s) => s.bg(t.hover).border_color("#2b3444")))
+      // 激活卡左侧 2px 脊柱（在卡片内，不干扰树状连接线）。
+      .when(on, (el) => el.child(div().absolute().left(0).top(0).bottom(0).w(2).bg(t.accent)))
       .when(this.pressed === i && this.over !== i, (el) => el.opacity(0.5))
       .when(this.pressed !== null && this.over === i && this.pressed !== i, (el) => el.child(
         div().absolute().left(0).right(0).h(2).bg(t.accent)
@@ -488,27 +508,28 @@ export default class Spaces extends View {
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/gugugaga-chrome/branch.svg").size(13).text_color(t.dim)))
           .when(!tree, el => el.child(
             div()
-              .size(46)
+              .size(tight ? 34 : 46)
               .flex_none()
               .flex()
               .items_center()
               .justify_center()
-              .bg(withAlpha(t.canvas, "c0"))
+              .rounded(0)
+              .bg(t.canvas)
               .border(1)
-              .border_color(on ? t.accent : withAlpha(t.border, "88"))
-              .child(image(placeFor(w.name, this.places)).size(42).flex_none()),
+              .border_color(on ? t.accent : "#232a36")
+              .child(image(placeFor(w.name, this.places)).size(tight ? 30 : 42).flex_none()),
           ))
           .child(v_flex().flex_1().min_w(0).gap(2)
             .child(h_flex().gap(6).items_center()
-              .child(h_flex().flex_shrink(0).max_w(inGroup ? 150 : 176).min_w(0).items_center().gap(3)
+              .child(h_flex().flex_1().min_w(0).items_center().gap(3)
                 .when(on, el => el.child(div().flex_none().text_size(11).text_color(t.accent).child("▸")))
                 .child(div().min_w(0).truncate().when(on, el => el.font_semibold()).text_color(t.foreground).child(w.name)))
-              .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1()))
+              .child(g ? this.gitTail(g, tree, w.name, t, tight ? 48 : 140) : div().flex_1()))
             .when(!tree, el => el.children(this.gitLines(sum, t)))),
       );
     if (!inGroup) return card;
     const midY = tree ? 12 : 26;
-    const lineColor = withAlpha(t.accent, "66");
+    const lineColor = BRANCH;
     return h_flex()
       .w_full()
       .h(h)
@@ -531,7 +552,7 @@ export default class Spaces extends View {
           )
           .child(div().absolute().left(9).top(midY).w(7).h(2).bg(on ? t.accent : lineColor))
           .when(on, el => el.child(div().absolute().left(11).top(midY - 3).size(7).bg(t.accent).border(1).border_color(t.canvas)))
-          .when(!on, el => el.child(div().absolute().left(11).top(midY - 2).size(5).bg(withAlpha(t.accent, "99")).border(1).border_color(t.canvas))),
+          .when(!on, el => el.child(div().absolute().left(11).top(midY - 2).size(5).bg(TRUNK).border(1).border_color(t.canvas))),
       )
       .child(card);
   }
@@ -566,10 +587,24 @@ export default class Spaces extends View {
     }
     if (changed) setShared("space.colors", kept);
     return v_flex().size_full().min_h(0).text_size(13)
+      .on_size_change((size, cx) => {
+        // on_size_change 回報縮放後像素，除以 zoom 才是 layout px。
+        const z = settings()?.zoom;
+        const zoom = typeof z === "number" && z > 0 ? z : 1;
+        const next = size.width / zoom;
+        if (!this.blockW || Math.abs(this.blockW - next) > 1.5) {
+          this.blockW = next;
+          cx.notify();
+        }
+      })
       .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11).text_color(t.accent)
-        .when(!collapsed, el => el.child(div().font_semibold().child("Spaces")))
-        .child(div().id("space-new").size(24).flex_none().flex().items_center().justify_center().rounded(5).border(1).border_color(t.border).bg(withAlpha(t.surface, "99")).text_color(t.dim).hover(s => s.bg(t.hover).border_color(t.accent).text_color(t.foreground))
-          .on_click(() => run("space.new", { machine: "" })).child(svg("mods/gugugaga-chrome/plus.svg").size(13))))
+        .when(!collapsed, el => el.child(
+          h_flex().flex_none().gap(6).items_center()
+            .child(div().font_family(MONO_FONT).font_bold().text_size(10.5).text_color(t.muted).child("SPACES"))
+            .child(countChip(sp.length, t)),
+        ))
+        .child(div().id("space-new").size(22).flex_none().flex().items_center().justify_center().rounded(0).border(1).border_color("#232a36").bg(t.chrome).text_color(t.dim).hover(s => s.bg(t.hover).border_color(t.accent).text_color(t.foreground))
+          .on_click(() => run("space.new", { machine: "" })).child(svg("mods/gugugaga-chrome/plus.svg").size(12))))
       .child(v_flex().flex_1().min_h(0).px(8).pb(12).gap(3).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
         .children(this.grouped(t, collapsed)));

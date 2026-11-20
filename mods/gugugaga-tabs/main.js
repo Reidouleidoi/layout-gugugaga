@@ -5,7 +5,15 @@ import { agents, spaces, panes, run, openOverlay, theme, window, shared, layout,
 import { assignJobs, jobIn, portraitPath, resolveAppInfo, setGugugagaPools, spritePath, tabNames, withAlpha } from "./lib.js";
 
 const JOBS_FILE = `${appHome()}/mods/gugugaga-agents/jobs.json`;
-const STATUS_LABELS = { working: "Working", blocked: "Needs you", done: "Done", idle: "Idle" };
+const MONO_FONT = "Cascadia Mono";
+const STATUS_LABELS = { working: "WORKING", blocked: "NEEDS YOU", done: "DONE", idle: "IDLE" };
+// 與 gugugaga-agents 的 STATUS_SKIN 同一套配色（深底 + 狀態色細框）。
+const STATUS_SKIN = {
+  working: { bg: "#0e2238fa", border: "#8ccaffdd", text: "#d8eeff" },
+  blocked: { bg: "#241708f8", border: "#ffb547ee", text: "#ffd080" },
+  done: { bg: "#0d1d18f5", border: "#7fd8a899", text: "#9ae6be" },
+  idle: { bg: "#0d131cf0", border: "#5d687866", text: "#7c8a9e" },
+};
 
 function tabAgentLogo(info, t) {
   const color = info.color ?? t.accent;
@@ -14,7 +22,7 @@ function tabAgentLogo(info, t) {
     .size(16)
     .items_center()
     .justify_center()
-    .rounded(3)
+    .rounded(0)
     .bg(withAlpha(t.canvas, "e0"))
     .border(1)
     .border_color(withAlpha(color, "88"))
@@ -23,11 +31,12 @@ function tabAgentLogo(info, t) {
 }
 
 function tabStatusBadge(status, t) {
+  const skin = STATUS_SKIN[status] ?? STATUS_SKIN.idle;
   const color =
     status === "blocked"
       ? t.blocked ?? t.solid
       : t[status] ?? t.dim;
-  const label = STATUS_LABELS[status] ?? status;
+  const label = STATUS_LABELS[status] ?? String(status).toUpperCase();
   const mark =
     status === "working"
       ? div().w(9).flex().items_center().justify_center().text_size(9).text_color(color).frames(["▘", "▝", "▗", "▖"], 140)
@@ -40,12 +49,12 @@ function tabStatusBadge(status, t) {
     .px(5)
     .gap(3)
     .items_center()
-    .rounded(4)
-    .bg(withAlpha(color, "1a"))
+    .rounded(0)
+    .bg(skin.bg)
     .border(1)
-    .border_color(withAlpha(color, "44"))
+    .border_color(skin.border)
     .child(mark)
-    .child(div().flex_none().text_size(9.5).font_medium().text_color(color).child(label));
+    .child(div().flex_none().font_family(MONO_FONT).text_size(9).font_semibold().text_color(skin.text).child(label));
 }
 
 function find(node, id) {
@@ -168,7 +177,9 @@ export default class Tabs extends View {
     const shown = space?.tabs ?? [];
     const assigned = assignJobs(tabNames(spaces(), agents()), this.jobs);
     const stop = (_e, cx) => cx.stop_propagation();
-    const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(5).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
+    // 1px × 16px 分隔线：图标群之间的一道细缝。
+    const separator = () => div().w(1).h(16).flex_none().bg("#232a36");
+    const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(0).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
     const allAgents = agents();
     const allPanes = panes();
@@ -184,10 +195,12 @@ export default class Tabs extends View {
       // Tab 欄優先用靜態頭像 (a/)，以 tab id 快取，沒有才退回 sprites。
       const portrait = portraitPath(job, c.id);
       const sprite = portrait ? null : spritePath(job, status, c.id);
-      const borderColor = status === "blocked" ? t.blocked : c.active ? t.accent : t.border;
-      return h_flex().id(`tab-${c.id}`).relative().h(48).px(8).gap(6).items_center().flex_none().rounded(5).text_size(12.5)
-        .border(1).border_color(borderColor).bg(c.active ? t.raised : withAlpha(t.chrome, "ee")).text_color(c.active ? t.foreground : t.muted)
-        .hover(s => s.bg(c.active ? t.raised : t.hover))
+      const borderColor = status === "blocked" ? t.blocked : c.active ? t.accent : "#232a36";
+      // 顶部 2px 语义色条：优先取 tab 主 Agent 的 CLI 色，blocked 用琥珀。
+      const semantic = status === "blocked" ? t.blocked : appInfo?.color ?? t.accent;
+      return h_flex().id(`tab-${c.id}`).relative().h(48).px(8).gap(6).items_center().flex_none().rounded(0).text_size(12.5)
+        .border(1).border_color(borderColor).bg(c.active ? "#141924" : "#0d1118").text_color(c.active ? t.foreground : t.muted)
+        .hover(s => s.bg(c.active ? "#141924" : t.hover))
         .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed = i; if (e.click_count === 2) run("tab.rename", { id: c.id }); })
         .on_mouse_up("left", () => {
           const from = this.pressed; this.pressed = null;
@@ -196,7 +209,11 @@ export default class Tabs extends View {
         })
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         .when(c.active || status === "blocked", el =>
-          el.child(div().absolute().left(0).right(0).top(0).h(2).bg(status === "blocked" ? t.blocked : t.accent)))
+          el.child(div().absolute().left(0).right(0).top(0).h(2).bg(semantic)))
+        .when(c.active, el =>
+          el
+            .child(div().absolute().left(1).bottom(1).size(2).bg(semantic))
+            .child(div().absolute().right(1).bottom(1).size(2).bg(semantic)))
         .when(Boolean(sprite), el => el.child(image(sprite).w(32).h(42).flex_none()))
         .when(Boolean(portrait), el => el.child(image(portrait).size(40).flex_none()))
         .when(!sprite && !portrait && Boolean(program?.icon), el => el.child(program.tint ? svg(program.icon).size(14).text_color(t.muted) : image(program.icon).size(14)))
@@ -215,21 +232,28 @@ export default class Tabs extends View {
     this.syncPanel(space, panel, body, enabled);
     const panelButton = (id, label, icon) => {
       const on = panel && !panel.hidden && body?.active === id;
-      return h_flex().id(`panel-${id}`).h(26).px(8).gap(5).flex_none().items_center().rounded(4)
-        .text_size(12).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
+      return h_flex().id(`panel-${id}`).relative().h(26).px(8).gap(6).flex_none().items_center().rounded(0)
+        .border(1).border_color(on ? t.accent : "#232a36")
+        .bg(on ? "#161d2b" : t.chrome).text_color(on ? t.foreground : t.muted)
         .hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
         .on_click(() => {
           if (on) run("layout.hide", { id: "panel" });
           else { run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" }); }
-        }).child(image(icon).size(20).flex_none()).child(label);
+        })
+        // 激活时的底部 2px 指示条
+        .when(on, (el) => el.child(div().absolute().left(0).right(0).bottom(0).h(2).bg(t.accent)))
+        .child(svg(icon).size(14).flex_none().text_color(on ? t.accent : t.muted))
+        .child(div().flex_none().font_family(MONO_FONT).text_size(10).font_semibold().child(label));
     };
     return h_flex().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
       .on_mouse_up("left", () => { this.pressed = null; })
       .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().children(shown.map(item)))
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
-      .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/gugugaga-tabs/art/files.png")))
-      .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/gugugaga-tabs/art/changes.png")))
-      .child(panelButton("inbox", "Inbox", "mods/gugugaga-tabs/art/inbox.png"))
+      .child(separator())
+      .when(enabled.includes("files"), el => el.child(panelButton("files", "FILES", "mods/gugugaga-chrome/files.svg")))
+      .when(enabled.includes("changes"), el => el.child(panelButton("changes", "CHANGES", "mods/gugugaga-chrome/git-compare.svg")))
+      .child(panelButton("inbox", "INBOX", "mods/gugugaga-chrome/archive.svg"))
+      .child(separator())
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/gugugaga-tabs/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/gugugaga-tabs/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
         .child(button("close-window", w.platform === "windows" ? svg("mods/gugugaga-tabs/win-close.svg").size(16) : svg("mods/pane/close.svg").size(13), () => run("window.close"))));

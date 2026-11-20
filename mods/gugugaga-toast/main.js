@@ -7,6 +7,15 @@ import { agents, appHome, closeOverlay, panes, props, readTextFile, run, spaces,
 import { resolveToastContext, withAlpha } from "./lib.js";
 
 const JOBS_FILE = `${appHome()}/mods/gugugaga-agents/jobs.json`;
+const MONO_FONT = "Cascadia Mono";
+// 與 gugugaga-agents / gugugaga-tabs 同一套狀態扣皮膚。
+const STATUS_SKIN = {
+  working: { bg: "#0e2238fa", border: "#8ccaffdd", text: "#d8eeff" },
+  blocked: { bg: "#241708f8", border: "#ffb547ee", text: "#ffd080" },
+  done: { bg: "#0d1d18f5", border: "#7fd8a899", text: "#9ae6be" },
+  idle: { bg: "#0d131cf0", border: "#5d687866", text: "#7c8a9e" },
+};
+const STATUS_LABELS = { working: "WORKING", blocked: "NEEDS YOU", done: "DONE", idle: "IDLE" };
 
 function cornerStuds(color) {
   const studColor = withAlpha(color, "cc");
@@ -26,15 +35,17 @@ function toastAgentBadge(info, t) {
     .px(4)
     .gap(3)
     .items_center()
-    .rounded(3)
+    .rounded(0)
     .bg(withAlpha(t.canvas, "e0"))
     .border(1)
     .border_color(withAlpha(color, "88"))
     .child(info.tint ? svg(info.logo).size(11).flex_none().text_color(color) : image(info.logo).size(11).flex_none())
-    .child(div().flex_none().font_semibold().text_size(9.5).text_color(color).child(info.short || info.text));
+    .child(div().flex_none().font_family(MONO_FONT).font_semibold().text_size(9.5).text_color(color).child(info.short || info.text));
 }
 
 function toastStatusBadge(status, color, t) {
+  const skin = STATUS_SKIN[status.key] ?? { bg: withAlpha(color, "1a"), border: withAlpha(color, "44"), text: color };
+  const label = STATUS_LABELS[status.key] ?? String(status.label ?? "").toUpperCase();
   const mark =
     status.key === "working"
       ? div().w(9).flex().items_center().justify_center().text_size(9).text_color(color).frames(["▘", "▝", "▗", "▖"], 140)
@@ -47,12 +58,12 @@ function toastStatusBadge(status, color, t) {
     .px(5)
     .gap(3)
     .items_center()
-    .rounded(4)
-    .bg(withAlpha(color, "1a"))
+    .rounded(0)
+    .bg(skin.bg)
     .border(1)
-    .border_color(withAlpha(color, "44"))
+    .border_color(skin.border)
     .child(mark)
-    .child(div().flex_none().text_size(9.5).font_medium().text_color(color).child(status.label));
+    .child(div().flex_none().font_family(MONO_FONT).text_size(9).font_semibold().text_color(skin.text).child(label));
 }
 
 export default class TravelerToast extends View {
@@ -93,7 +104,7 @@ export default class TravelerToast extends View {
       .flex()
       .items_center()
       .justify_center()
-      .rounded(5)
+      .rounded(0)
       .bg(withAlpha(t.canvas, "eb"))
       .border(1)
       .border_color(withAlpha(accentColor, "99"))
@@ -112,7 +123,7 @@ export default class TravelerToast extends View {
       .id("toast")
       .size_full()
       .p(2)
-      .rounded(8)
+      .rounded(0)
       .bg(this.hovered ? t.raised : t.popover)
       .cursor_pointer()
       .on_hover((on, cx) => {
@@ -127,7 +138,7 @@ export default class TravelerToast extends View {
         div()
           .relative()
           .size_full()
-          .rounded(6)
+          .rounded(0)
           .border(1)
           .border_color(withAlpha(accentColor, this.hovered ? "cc" : "88"))
           .child(div().absolute().left(0).right(0).top(0).h(2).bg(accentColor))

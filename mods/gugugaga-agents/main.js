@@ -4,7 +4,7 @@
 import { readdir } from "fs/promises";
 import { View, Background, PathBuilder, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { agents, appHome, hc, readTextFile, run, setAgentOrder, spaces, terminals, theme, watchFolder } from "herdr";
+import { agents, appHome, hc, readTextFile, run, setAgentOrder, settings, spaces, terminals, theme, watchFolder } from "herdr";
 import { assignJobs, cachePath, cliFrame, cliSkin, contextLabel, effortSpec, jobIn, mixHex, modelFamily, modelLabel, parseCache, parseTerminalModel, portraitPath, remoteCachePath, resolveAppInfo, setGugugagaPools, spacePlaceArt, spritePath, tabNames } from "./lib.js";
 
 const HOME = appHome();
@@ -36,9 +36,11 @@ const DROP_X = 52; // x=52..54 直角下折至 y=107
 const TAB_ROW_TOP = 80;
 const TAB_ROW_H = 20; // y=80..100，居中於企鵝正下方 x=4..50
 const NOTCH_LEFT_IN_PLATE = 10;
-const NOTCH_W = 142;
+const NOTCH_W = 142; // 完整態挖槽寬；窄態由 plateW 收斂
 const NOTCH_H = 19; // bottom 嚴格齊平 y=107，絕不下凸破框
-const TRACK_START_IN_PLATE = NOTCH_LEFT_IN_PLATE + NOTCH_W; // 152
+const NARROW_PX = 160; // 窄軌門檻：與 gugugaga-spaces / gugugaga-chrome 同一個數
+const FOLD_WIDE_PX = 320; // Party 收縮扣的兩檔寬度
+const FOLD_NARROW_PX = 196;
 const MONO_FONT = "Cascadia Mono";
 const PLATE_INK = "#070b12";
 const withAlpha = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
@@ -236,10 +238,10 @@ function modelBacking(primary, strong) {
 }
 
 // 兩段式左向遮罩的第二段：x=96..180（前 16px 實色接 68px 柔和羽化），確保 160px 模型名尾部不被亮立繪吞字。
-function fadeLayer(plate, angle) {
+function fadeLayer(plate, angle, left = 96) {
   return div()
     .absolute()
-    .left(96)
+    .left(left)
     .top(0)
     .w(84)
     .h_full()
@@ -307,7 +309,7 @@ function unknownArtSlot() {
 }
 
 // Agent 扣：精緻克制 h=22、16x16 像素 SVG + 舒適留白 + Cascadia Mono 加粗大寫 CLI 名。
-function agentBadge(info, _t, focused, skin) {
+function agentBadge(info, _t, focused, skin, iconOnly = false) {
   const color = info.color ?? skin.accent;
   const mark = info.tint
     ? svg(info.logo).size(16).flex_none().text_color(color)
@@ -322,14 +324,16 @@ function agentBadge(info, _t, focused, skin) {
       h_flex()
         .relative()
         .h(22)
-        .px(6)
+        .px(iconOnly ? 3 : 6)
         .gap(5)
         .items_center()
         .rounded(0)
-        .max_w(124)
+        .max_w(iconOnly ? 22 : 124)
         .bg("#0b111cf5")
         .border(1)
         .border_color(hex8(color, focused ? "dd" : "88"))
+        // 窄到只剩 Logo 扣時，名字改掛 tooltip。
+        .when(iconOnly, (el) => el.tooltip(label))
         .child(
           div()
             .min_w(0)
@@ -337,15 +341,17 @@ function agentBadge(info, _t, focused, skin) {
             .items_center()
             .gap(5)
             .child(mark)
-            .child(
-              div()
-                .min_w(0)
-                .truncate()
-                .font_family(MONO_FONT)
-                .font_bold()
-                .text_size(10.5)
-                .text_color(color)
-                .child(label),
+            .when(!iconOnly, (el) =>
+              el.child(
+                div()
+                  .min_w(0)
+                  .truncate()
+                  .font_family(MONO_FONT)
+                  .font_bold()
+                  .text_size(10.5)
+                  .text_color(color)
+                  .child(label),
+              ),
             ),
         ),
     );
@@ -370,7 +376,7 @@ function statusMark(status, statusColor) {
 }
 
 // 右上狀態扣：克制精煉 h=19 + rounded(0) + Cascadia Mono 9px。
-function statusBadge(status, t) {
+function statusBadge(status, t, iconOnly = false) {
   const skin = STATUS_SKIN[status] ?? STATUS_SKIN.idle;
   const label = STATUS[status] ?? String(status).toUpperCase();
   const icon =
@@ -420,7 +426,7 @@ function statusBadge(status, t) {
       h_flex()
         .relative()
         .h(19)
-        .px(5)
+        .px(iconOnly ? 2 : 5)
         .gap(4)
         .items_center()
         .rounded(0)
@@ -428,25 +434,27 @@ function statusBadge(status, t) {
         .border(1)
         .border_color(skin.border)
         .child(icon)
-        .child(
-          div()
-            .flex_none()
-            .font_family(MONO_FONT)
-            .text_size(9)
-            .when(status === "working" || status === "blocked", (el) => el.font_semibold())
-            .text_color(skin.text)
-            .child(label),
+        .when(!iconOnly, (el) =>
+          el.child(
+            div()
+              .flex_none()
+              .font_family(MONO_FONT)
+              .text_size(9)
+              .when(status === "working" || status === "blocked", (e) => e.font_semibold())
+              .text_color(skin.text)
+              .child(label),
+          ),
         ),
     );
 }
 
 // 主角模型橫幅（w=160, h=22）：左 2px primary 實色豎條 + 通透柔和漸變 + 14x14 廠家 Logo + 亮白模型名。
-function modelBanner(family, model, rawModel, fallbackLabel, t) {
+function modelBanner(family, model, rawModel, fallbackLabel, t, width = 160) {
   const primary = family.primary;
   const label = model || fallbackLabel;
   return div()
     .relative()
-    .w(160)
+    .w(width)
     .h(22)
     .rounded(0)
     .overflow_hidden()
@@ -522,12 +530,12 @@ function modelBanner(family, model, rawModel, fallbackLabel, t) {
 }
 
 // 副信息 Effort + 可選上下文副標（h=14, max_w=150）：3x4 像素點 + 低飽和等寬字 + 自訂會話名。
-function effortBar(effort, primary, contextTag) {
+function effortBar(effort, primary, contextTag, maxW = 150) {
   const spec = effortSpec(effort);
   if (!spec && !contextTag) return null;
   return h_flex()
     .h(14)
-    .max_w(150)
+    .max_w(maxW)
     .gap(6)
     .items_center()
     .when(Boolean(spec), (el) =>
@@ -574,10 +582,10 @@ function effortBar(effort, primary, contextTag) {
 }
 
 // 底邊齊平方形挖槽：bottom 嚴格對齊 PLATE_BOTTOM（絕不下凸破框），上/左/右 1px 像素邊，底邊敞口遮平底框線。
-function spaceNotch(a, places, spaceName, borderColor) {
+function spaceNotch(a, places, spaceName, borderColor, notchW = NOTCH_W) {
   return div()
     .relative()
-    .w(NOTCH_W)
+    .w(notchW)
     .h(NOTCH_H)
     .rounded(0)
     .bg("#0b1018")
@@ -606,7 +614,9 @@ function spaceNotch(a, places, spaceName, borderColor) {
 }
 
 // Working 底槽 + 深底襯墊 + 亮冰藍掃描像素塊（銜接於 Space 挖槽右側 x=152..right-1，貼齊底邊 1px 外框）。
-function workingTrack(startLeft) {
+function workingTrack(startLeft, trackW = 88) {
+  // 掃描塊寬 28，動畫區間隨可用 trackW 收斂，任何寬度都不會衝出底槽。
+  const travel = Math.max(0, trackW - 28);
   return div()
     .absolute()
     .left(startLeft)
@@ -624,7 +634,7 @@ function workingTrack(startLeft) {
         .w(28)
         .h(2)
         .gap(3)
-        .loop("left", { from: 0, to: 52, period: 1600, easing: "ease-in-out" })
+        .loop("left", { from: 0, to: travel, period: 1600, easing: "ease-in-out" })
         .child(div().flex_1().h(2).rounded(0).bg("#8ccaffee"))
         .child(div().flex_1().h(2).rounded(0).bg("#8ccaffee"))
         .child(div().flex_1().h(2).rounded(0).bg("#8ccaffee")),
@@ -664,6 +674,8 @@ export default class Traveler extends View {
     this.watching = false;
     this.panelH = 0;
     this.panelW = 0;
+    // on_size_change 回報的是縮放後像素（zoom 1.2 時 320 → 379），換算回 layout 單位才對得上 px。
+    this.blockW = 0;
     this.hovered = null;
     this.folded = new Set(); // 折起來的子代理：address
     this.listed = new Map(); // address -> agents() 的狀態（有 pane 的子代理用這個）
@@ -1102,7 +1114,29 @@ export default class Traveler extends View {
       a.status === "blocked" ? "blocked" : focused ? "focused" : isHot ? "hovered" : "default";
     const si = state === "focused" ? 2 : state === "hovered" ? 1 : 0;
     const look = frameLook(skin, si);
-    const art = family.art;
+    // ── 四檔響應式：側欄寬度決定銘牌寬度與收納層級 ─────────────────────
+    // panelW 由 on_size_change 量得（已換算回 layout 單位）；首帧还没有量測值時退回 240 的完整態。
+    const panelW = this.blockW ?? 0;
+    const measured = panelW > 0;
+    const plateW = measured
+      ? Math.max(80, Math.min(320, Math.round(panelW - 16 - PLATE_X)))
+      : PLATE_W;
+    const tier = !measured || panelW >= 272 ? "full" : panelW >= 228 ? "noArt" : "minimal";
+    const showArt = tier === "full";
+    // 立繪左緣：full 態的羽化要貼著立繪左緣走（plateW 240 時正好 96）。
+    const fadeLeft = Math.max(40, plateW - 144);
+    const notchW = Math.max(56, Math.min(NOTCH_W, plateW - 18));
+    const trackStart = NOTCH_LEFT_IN_PLATE + notchW;
+    const trackW = plateW - trackStart - 1;
+    const trackFits = trackW >= 24;
+    const bannerW = Math.max(60, Math.min(160, plateW - 16));
+    const effortMaxW = Math.max(60, plateW - 18);
+    // 防碰撞降級：銘牌窄到放不下文字時，把扣切成純圖示（名字改掛 tooltip）。
+    const statusIconOnly = plateW < 192;
+    const agentIconOnly = plateW < 156 || (card.count > 0 && plateW < 176);
+    const art = showArt ? family.art : null;
+    // noArt 態只留右側極淡背襯光，立繪 / 缺省槽 / 羽化一律乾淨隱藏。
+    const artBacking = Boolean(family.art) && tier !== "minimal";
     const isDimIdle = a.status === "idle" && !focused && !isHot;
     const artOpacity =
       state === "blocked" ? 0.92 : state === "focused" ? 0.98 : state === "hovered" ? 0.94 : isDimIdle ? 0.48 : 0.84;
@@ -1136,7 +1170,7 @@ export default class Traveler extends View {
     const contextTag = model
       ? contextLabel(cache?.name, a.tab_name, { model, rawModel, spaceName })
       : contextLabel(null, a.tab_name, { model: fallbackLabel, spaceName });
-    const effortRow = effortBar(effort, family.primary, contextTag);
+    const effortRow = effortBar(effort, family.primary, contextTag, effortMaxW);
     const unifiedOutline =
       state === "blocked" ? "#ffb547ee" : state === "focused" ? "#8ccaffa8" : null;
     const skinEdge =
@@ -1186,7 +1220,7 @@ export default class Traveler extends View {
           .absolute()
           .left(PLATE_X)
           .top(PLATE_TOP)
-          .w(PLATE_W)
+          .w(plateW)
           .h(PLATE_H)
           .rounded(0)
           .bg(skin.plate)
@@ -1203,7 +1237,7 @@ export default class Traveler extends View {
               .bg(skin.plate)
               .overflow_hidden()
               // 立繪微背襯光（Model 體系）
-              .when(Boolean(art), (el) => el.child(modelBacking(family.primary, family.moon)))
+              .when(artBacking, (el) => el.child(modelBacking(family.primary, family.moon)))
               // 右貼半身立繪（圖檔頂部已留安全邊距，top(0) 完整保留胸口領結，非聚焦 IDLE 疊統一深冰夜壓暗幕）
               .when(Boolean(art), (el) =>
                 el.child(
@@ -1241,9 +1275,9 @@ export default class Traveler extends View {
                     ),
                 ),
               )
-              .when(!art, (el) => el.child(unknownArtSlot()))
-              // 左向乾淨羽化過渡
-              .when(Boolean(art), (el) => el.child(fadeLayer(skin.plate, 90)))
+              .when(showArt && !art, (el) => el.child(unknownArtSlot()))
+              // 左向乾淨羽化過渡：銷點跟著立繪左緣，換寬度也不錯位
+              .when(showArt && Boolean(art), (el) => el.child(fadeLayer(skin.plate, 90, fadeLeft)))
               // 狀態薄霧在羽化之上、文字之下
               .when(Boolean(mist), (el) => el.child(div().absolute().inset_0().bg(mist)))
               // 內艙細線與克制像素角飾
@@ -1292,7 +1326,7 @@ export default class Traveler extends View {
                   .absolute()
                   .left(10)
                   .top(18)
-                  .child(modelBanner(family, model, rawModel, fallbackLabel, t)),
+                  .child(modelBanner(family, model, rawModel, fallbackLabel, t, bannerW)),
               )
               .when(Boolean(effortRow), (el) =>
                 el.child(div().absolute().left(10).top(44).child(effortRow)),
@@ -1328,10 +1362,10 @@ export default class Traveler extends View {
               ),
           )
           // 四態底槽動效（貼齊外框底邊 y=106 內側 bottom(1)，精確銜接於 Space 挖槽右側 x=152..right-1）
-          .when(a.status === "working", (el) => el.child(workingTrack(TRACK_START_IN_PLATE)))
-          .when(a.status === "blocked", (el) => el.child(blockedSlash(TRACK_START_IN_PLATE)))
-          .when(a.status === "done", (el) =>
-            el.child(div().absolute().left(TRACK_START_IN_PLATE).right(1).bottom(1).h(2).bg("#7fd8a866")),
+          .when(a.status === "working" && trackFits, (el) => el.child(workingTrack(trackStart, trackW)))
+          .when(a.status === "blocked" && trackFits, (el) => el.child(blockedSlash(trackStart)))
+          .when(a.status === "done" && trackFits, (el) =>
+            el.child(div().absolute().left(trackStart).right(1).bottom(1).h(2).bg("#7fd8a866")),
           )
           // 聚焦/Blocked 時點亮與底部階梯托架+挖槽一致的外輪廓框
           .when(Boolean(unifiedOutline), (el) =>
@@ -1344,7 +1378,7 @@ export default class Traveler extends View {
           .absolute()
           .left(PLATE_X + NOTCH_LEFT_IN_PLATE)
           .top(PLATE_BOTTOM - NOTCH_H)
-          .child(spaceNotch(a, this.places, spaceName, notchBorder)),
+          .child(spaceNotch(a, this.places, spaceName, notchBorder, notchW)),
       )
       // 底部階梯像素托架（━━┓┗━━）：腳底托盤 (y=74, x=4..54) -> 右折下探 (x=52, y=74..107) -> 底邊直連 (y=105..107, x=52..65)。
       .child(
@@ -1426,19 +1460,19 @@ export default class Traveler extends View {
           .absolute()
           .left(PLATE_X)
           .top(0)
-          .w(PLATE_W)
+          .w(plateW)
           .h(24)
           .flex()
           .items_center()
           .justify_between()
-          .child(div().ml(6).child(agentBadge(info, t, focused, skin)))
+          .child(div().ml(6).child(agentBadge(info, t, focused, skin, agentIconOnly)))
           .child(
             h_flex()
               .mr(6)
               .gap(4)
               .items_center()
               .when(card.count > 0, (el) => el.child(this.squadChip(a, card, t)))
-              .child(statusBadge(a.status, t)),
+              .child(statusBadge(a.status, t, statusIconOnly)),
           ),
       )
       // 拖曳插入線：往下拖畫在目標下緣，往上拖畫在目標上緣。
@@ -1475,12 +1509,45 @@ export default class Traveler extends View {
             .items_center()
             .justify_center()
             .border(1)
-            .border_color(a.status === "blocked" ? t.blocked : a.focused ? t.accent : t.border)
+            .border_color(a.status === "blocked" ? t.blocked : a.focused ? t.accent : "#232a36")
+            .rounded(0)
             .bg(a.focused ? withAlpha(t.raised, "ee") : withAlpha(t.surface, "c8"))
             .cursor_pointer()
             .on_click(() => run("agent.focus", { terminal: a.address }))
             .child(portrait(a, this.assigned, t)),
         ),
+      );
+  }
+
+  // Party 標題列的快捷收縮扣：320 <-> 196 兩檔，直接切到「極簡銘牌態」。
+  foldButton(t) {
+    const blockW = this.blockW ?? 0;
+    const wide = blockW <= 0 || blockW >= 258;
+    const target = wide ? FOLD_NARROW_PX : FOLD_WIDE_PX;
+    return div()
+      .id("agents-fold")
+      .size(18)
+      .flex_none()
+      .flex()
+      .items_center()
+      .justify_center()
+      .rounded(0)
+      .border(1)
+      .border_color(withAlpha(t.border, "99"))
+      .bg(withAlpha(t.canvas, "66"))
+      .cursor_pointer()
+      .hover((el) => el.bg(t.hover).border_color(withAlpha(t.accent, "77")))
+      .tooltip(wide ? `Sidebar ${FOLD_WIDE_PX} → ${FOLD_NARROW_PX}` : `Sidebar ${FOLD_NARROW_PX} → ${FOLD_WIDE_PX}`)
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_click(() => run("layout.resize", { id: "sidebar", px: target }))
+      // 纯像素双竖条（不依赖字体字符，避免 tofu）：亮的一侧表示当前宽度档位。
+      .child(
+        h_flex()
+          .flex_none()
+          .gap(2)
+          .items_center()
+          .child(div().w(3).h(9).rounded(0).bg(withAlpha(t.accent, wide ? "dd" : "44")))
+          .child(div().w(3).h(9).rounded(0).bg(withAlpha(t.accent, wide ? "44" : "dd"))),
       );
   }
 
@@ -1496,7 +1563,7 @@ export default class Traveler extends View {
       this.loadScreenModels(cx, false);
     }
 
-    const compactRail = this.panelW > 0 && this.panelW < 150;
+    const compactRail = this.blockW > 0 && this.blockW < NARROW_PX;
     // 巢狀關係只在 terminals() 的 parent 上。nested 涵蓋所有 live 子代理，不看收合狀態：
     // 折起一個父母時，子代理也不能彈出來變成另一張 top-level 卡片。
     const kids = this.childIndex(compactRail ? [] : terminals());
@@ -1527,6 +1594,10 @@ export default class Traveler extends View {
         ) {
           this.panelH = size.height;
           this.panelW = size.width;
+          // 量到的是縮放後像素：除以 zoom 才是 layout px（zoom 1.2 時 320 → 379）。
+          const z = settings()?.zoom;
+          const zoom = typeof z === "number" && z > 0 ? z : 1;
+          this.blockW = size.width / zoom;
           cx.notify();
         }
       })
@@ -1537,29 +1608,37 @@ export default class Traveler extends View {
             h_flex()
               .h(22)
               .pl(16)
-              .pr(10)
+              .pr(8)
               .gap(6)
               .items_center()
+              .justify_between()
               .flex_none()
               .text_size(11)
               .text_color(t.accent)
-              .child(div().font_semibold().child("Party"))
               .child(
                 h_flex()
                   .flex_none()
-                  .px(4)
-                  .h(15)
+                  .gap(6)
                   .items_center()
-                  .justify_center()
-                  .rounded(0)
-                  .border(1)
-                  .border_color(withAlpha(t.border, "66"))
-                  .bg(withAlpha(t.canvas, "bb"))
-                  .font_family(MONO_FONT)
-                  .text_size(10)
-                  .text_color(t.accent)
-                  .child(`[${list.length}]`),
-              ),
+                  .child(div().font_semibold().child("Party"))
+                  .child(
+                    h_flex()
+                      .flex_none()
+                      .px(4)
+                      .h(15)
+                      .items_center()
+                      .justify_center()
+                      .rounded(0)
+                      .border(1)
+                      .border_color(withAlpha(t.border, "66"))
+                      .bg(withAlpha(t.canvas, "bb"))
+                      .font_family(MONO_FONT)
+                      .text_size(10)
+                      .text_color(t.accent)
+                      .child(`[${list.length}]`),
+                  ),
+              )
+              .child(this.foldButton(t)),
           )
           .child(
             v_flex()

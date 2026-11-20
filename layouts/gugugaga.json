@@ -69,11 +69,7 @@
       },
       "min": 44,
       "max": 480,
-      "background": {
-        "image": "mods/gugugaga-chrome/sidebar-gugugaga.png",
-        "fit": "cover"
-      },
-      "resizable": false
+      "resizable": true
     },
     {
       "id": "work",
@@ -102,22 +98,22 @@
                 "pane": {
                   "header": {
                     "content": {
-                      "mod": "pane"
+                      "mod": "gugugaga-pane"
                     },
                     "reveal": "always",
-                    "height": 30,
+                    "height": 28,
                     "position": "top"
                   },
                   "border": {
                     "width": 1,
-                    "color": "#ffffff14"
+                    "color": "#232a36"
                   },
                   "focus": {
                     "width": 1,
                     "color": "accent"
                   },
-                  "radius": 8,
-                  "gap": 8,
+                  "radius": 0,
+                  "gap": 6,
                   "lone": true
                 }
               }
@@ -134,14 +130,20 @@
                       "id": "files",
                       "type": "block",
                       "content": {
-                        "mod": "files"
+                        "mod": "gugugaga-files",
+                        "props": {
+                          "panel": "files"
+                        }
                       }
                     },
                     {
                       "id": "changes",
                       "type": "block",
                       "content": {
-                        "mod": "changes"
+                        "mod": "gugugaga-files",
+                        "props": {
+                          "panel": "changes"
+                        }
                       }
                     },
                     {
@@ -163,8 +165,8 @@
               "hidden": true
             }
           ],
-          "padding": 8,
-          "gap": 8
+          "padding": 6,
+          "gap": 6
         },
         {
           "id": "status",
@@ -182,8 +184,8 @@
   ],
   "background": "canvas",
   "terminal_padding": [
-    14,
-    12
+    12,
+    10
   ],
   "divider": {
     "width": 1,
@@ -195,6 +197,6 @@
     16
   ],
   "toast": "gugugaga-toast",
-  "theme": "gugugaga-ice",
+  "theme": "gugugaga-obsidian",
   "terminal_opacity": 1
 }

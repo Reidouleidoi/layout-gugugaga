@@ -12,7 +12,10 @@ import {
 
 const INBOX_DIR = appHome() + "/data/inbox/files";
 const DESKTOP_DIR = home() + "/Desktop";
-const BADGE = { image: "Image", video: "Video", pdf: "PDF", text: "MD" };
+const MONO_FONT = "Cascadia Mono";
+// 類型扣：短大寫標籤 + 2px 左側類型色條。
+const BADGE = { image: "IMG", video: "VID", pdf: "PDF", text: "MD" };
+const BADGE_COLOR = { image: "#38bdf8", video: "#a78bfa", pdf: "#ffb547", text: "#6ee7b7" };
 
 function clockText(seconds) {
   const d = new Date(seconds * 1000);
@@ -148,9 +151,10 @@ export default class Inbox extends View {
       .mx(10)
       .mb(4)
       .py(4)
-      .bg(t.raised)
+      .rounded(0)
+      .bg("#0d1118")
       .border_1()
-      .border_color(t.border)
+      .border_color("#1e2430")
       .text_size(12)
       .on_mouse_down_out((_event, cx) => {
         this.menuPath = null;
@@ -160,15 +164,30 @@ export default class Inbox extends View {
       .child(this.menuItem(`inbox-trash-${index}`, "Move to Trash", t, (cx) => this.moveToTrash(item, cx)));
   }
 
-  badge(item, t) {
-    return h_flex()
-      .w(40)
-      .h(40)
+  // 缩略图 / 类型扣共用的 40x40 像素槽：直角、#07090d 实底、1px 边框。
+  slot(t, child) {
+    return div()
+      .size(40)
       .flex_none()
+      .flex()
       .items_center()
       .justify_center()
-      .bg(t.raised)
-      .child(div().text_size(11).text_color(t.dim).child(BADGE[item.kind] ?? "File"));
+      .rounded(0)
+      .bg(t.canvas)
+      .border(1)
+      .border_color(t.border)
+      .child(child);
+  }
+
+  badge(item, t) {
+    return div()
+      .relative()
+      .size_full()
+      .flex()
+      .items_center()
+      .justify_center()
+      .child(div().absolute().left(0).top(0).bottom(0).w(2).bg(BADGE_COLOR[item.kind] ?? t.dim))
+      .child(div().font_family(MONO_FONT).font_semibold().text_size(9).text_color(t.muted).child(BADGE[item.kind] ?? "FILE"));
   }
 
   row(item, index, t) {
@@ -180,14 +199,18 @@ export default class Inbox extends View {
       .px(10)
       .gap(10)
       .items_center()
+      .rounded(0)
+      .bg("#0d1118")
+      .border(1)
+      .border_color("#1e2430")
       .cursor_pointer()
-      .hover((s) => s.bg(t.hover))
+      .hover((s) => s.bg(t.hover).border_color("#232a36"))
       .on_click((_event, cx) => this.launch(item, cx))
       .on_mouse_down("right", (_event, cx) => {
         this.menuPath = this.menuPath === item.path ? null : item.path;
         cx.notify();
       })
-      .child(thumb ? image(thumb).w(40).h(40).flex_none() : this.badge(item, t))
+      .child(this.slot(t, thumb ? image(thumb).size(38).flex_none() : this.badge(item, t)))
       .child(
         v_flex()
           .flex_1()
@@ -211,20 +234,38 @@ export default class Inbox extends View {
       .id("inbox")
       .size_full()
       .min_h(0)
+      // 与 FILES / CHANGES 面板同一条 1px 外框，切换 stall 时没有跳变。
+      .border_1()
+      .border_color(t.border)
       .bg(t.background)
       .text_color(t.foreground)
       .text_size(13)
       .child(
         h_flex()
-          .h(38)
+          .h(36)
           .flex_none()
           .px(14)
           .gap(8)
           .items_center()
           .border_b(1)
           .border_color(t.border)
-          .child(div().font_semibold().child("Inbox"))
-          .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.dim).child(`${this.items.length} file${this.items.length === 1 ? "" : "s"}`)),
+          .child(div().flex_none().font_family(MONO_FONT).font_bold().text_size(11).text_color(t.muted).child("INBOX"))
+          .child(
+            h_flex()
+              .flex_none()
+              .px(4)
+              .h(15)
+              .items_center()
+              .justify_center()
+              .rounded(0)
+              .border(1)
+              .border_color(t.border)
+              .bg(t.canvas)
+              .font_family(MONO_FONT)
+              .text_size(10)
+              .text_color(t.accent)
+              .child(`[${this.items.length}]`),
+          ),
       )
       .child(
         v_flex()
@@ -232,6 +273,7 @@ export default class Inbox extends View {
           .min_h(0)
           .overflow_y_scrollbar()
           .p(6)
+          .gap(3)
           .children(rows)
           .when(Boolean(this.notice), (el) => el.child(div().p(8).text_size(12).text_color(this.noticeOk ? t.dim : t.blocked).child(this.notice)))
           .when(Boolean(this.error), (el) => el.child(div().p(8).text_size(12).text_color(t.blocked).child(this.error)))

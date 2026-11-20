@@ -1,30 +1,43 @@
-# 🧊 Herdr Layout Gugugaga (Arctic Night Pixel Theme)
+# 🐧 Herdr Layout Gugugaga (Obsidian Pixel Deck)
 
 [English](README.en.md) | [简体中文](README.md)
 
-**Turn your multi-agent terminal workspace into a living arctic pixel base.**
+**Rebuild your multi-agent terminal workspace into a sharp, zero-radius Obsidian Pixel Deck.**
 
-`layout-gugugaga` is a dedicated **Arctic Night Pixel** layout and theme pack for [Herdr](https://herdr.dev) Desktop. It pairs a deep, low-fatigue ice-blue palette (`gugugaga-ice`) with a complete **2D pixel-art overhaul**, turning every running AI agent into an animated *Gugugaga* penguin sprite—idle breathing, heads-down coding, or holding up a sign when blocked—complete with subagent squad trees, multi-machine space outliners, and native **Windows** & **macOS** support.
+`layout-gugugaga` is an **Obsidian Pixel Deck** layout, theme, and 8-mod suite for [Herdr](https://herdr.dev) Desktop. Built on a neutral charcoal-obsidian skeleton (`#07090d` / `#0b0e14` / `#10141c`) with crisp `rounded(0)` pixel frames, electric cyan focus accents (`#38bdf8`), and strictly reserved amber alerts (`#ffb547`), it pairs animated *Gugugaga* penguin sprites with **10 CLI frame skins × 8 model-family portraits**, **4-tier responsive sidebar shrinking**, a **custom `28px` split-terminal header**, and an integrated **`Files` / `Changes` / `Inbox`** side drawer. Windows-first, macOS-aware.
 
-![Gugugaga Layout Preview](layouts/preview-gugugaga.png)
+![Gugugaga Obsidian Pixel Deck Poster](preview.png)
+
+> 🤖 **AI Agent Entry Point**: If you are a coding agent maintaining or extending this repository, read [**`AGENTS.md`**](AGENTS.md) first—it indexes every mod, symbol anchor, design invariant, known gotcha, and verification command so you never need to grep the whole repo.
 
 ---
 
 ## ✨ Highlights & Pixel Gallery
 
-- **🌌 `gugugaga-ice` Minimalist Arctic Night Theme**: Deep-sea navy/ice-blue base with high-contrast pixel status LEDs and golden active tab highlights designed for long coding sessions.
-- **🐧 3-State Sprites & Tri-Partite Party Cards (`gugugaga-agents`)**: Includes 7 `256×256` pixel avatars and 21 `144×192` transparent 3-state GIFs; rebuilt inside a 320px sidebar as unified showcase cards separating **CLI Skin × Model Portrait × Runtime Status** across 9 CLIs / 10 sharp-corner pixel frame styles, 8 model-family half-body portraits, 9 `12×12` pixel vendor logos, and drag-to-reorder sorting.
-- **🌿 Subagent Squad Pixel Tree**: Automatically detects subagents launched via `hc run` and attaches them under their parent card with 2D pixel trunk lines (up to 3 indentation depths) and collapsible count badges (`▾/▸ N`).
-- **🏰 Arctic Landmarks & Space Outliner (`gugugaga-spaces`)**: 4 pixel-outlined arctic buildings (`igloo`, `lighthouse`, `fishshop`, `iceberg`; 160×160 sources drawn at 42×42) with multi-machine outliner tree lines and fold controls.
-- **🗂️ Full Pixel UI Sync (`gugugaga-tabs` / `gugugaga-toast` / `inbox`)**: Synced pixel tab bar, RPG plaque notification toasts (synced across all 9 CLI pixel badges, with one-click login command copy), and a cross-platform Inbox adapted for Windows (OneDrive-safe Desktop path & Recycle Bin).
+- **🖤 `gugugaga-obsidian` Theme**: Deep charcoal-obsidian surfaces (`#07090d` / `#0b0e14` / `#10141c`), `rounded(0)` geometry everywhere, neutral graphite outliner trees (`#232a36`), `#38bdf8` reserved for focused/working states, and `#ffb547` strictly reserved for `NEEDS YOU / blocked` alerts. Legacy `themes/gugugaga-ice.json` remains intact for backward compatibility.
+- **↔️ 4-Tier Responsive Sidebar Shrinking (`320px → 250px → 196px → 44px`)**: Drag the sidebar edge (`resizable: true`) or click the `[||]` quick toggle in `Party [n]` to snap between `320px ↔ 196px`:
+  - `≥ 272px`: Full showcase card (`48×64` penguin + `112×90` model portrait);
+  - `228–272px`: Cleanly collapses the right portrait once past its left divider—never slicing characters in half;
+  - `160–228px`: Compact nameplate shrinking down to `layout…` in the bottom notch, with automatic icon-only status/CLI badge fallbacks; `Spaces` synchronously shrinks building tiles (`46→34px`) and hides per-machine `+`;
+  - `< 160px`: Unified icon rail while preserving crisp integer scaling on `48×64` penguin GIFs.
+- **🐧 10 CLI Frame Skins × 8 Model Portraits (`gugugaga-agents`)**: Distinct sharp-corner frames for Antigravity, Pi, Claude, Codex, OpenCode, Gemini, Hermes, Qwen, Kimi, plus fallback; supports drag-to-reorder (`agents.order`) and 3-level subagent squad trees.
+- **🖥️ `28px` Split Terminal Deck (`gugugaga-pane`)**: Tops every split terminal pane with a `2px` CLI/blocked semantic bar, `2×2` focus corner studs, `16×16` CLI slot, `t125` terminal address tag, compact last-folder + branch label, non-intercepting `2×3` pixel grip, `↓N` scroll-bottom chip, `STATUS_SKIN` pill, `[Z]` zoom tag, and `20×20` hover split/zoom/close buttons inside a `6px` `radius: 0` grid.
+- **📂 Integrated Drawer (`gugugaga-files` + `inbox`)**: Merged from `files-and-changes-addon` (derived from Herdr 0.1.16 `Apache-2.0`), adding soft-wrapping `Files` previews, zoom-corrected `Changes` diff wrapping with a persistent `WRAP` toggle & `COMMIT` button, and a keyboard-navigable (`↑/↓/Enter/Esc`) `frame: "none"` `rounded(0)` context menu (`Open with default app` / `Open folder` / `Reveal in File Explorer`), pixel-aligned (`h(36)` + `1px #232a36` border) with `inbox`.
+- **🗂️ Synced Chrome (`gugugaga-tabs` / `gugugaga-spaces` / `gugugaga-toast` / `gugugaga-chrome`)**: `Cascadia Mono` uppercase status badges across tabs and toasts, partitioned `+ | FILES · CHANGES · INBOX | - □ ×` top-right controls using `14×14` monochrome SVGs, and solid-obsidian chrome.
 
-### 🃏 Party Showcase Cards & Subagent Tree (v5 Live Captures)
+### 🖥️ Full Workspace & 4-Tier Adaptive Shrinking
+
+![Full Workspace Preview](layouts/preview-gugugaga.png)
+
+![4-Tier Adaptive Sidebar Shrink](layouts/preview-shrink-tiers.png)
+
+### 🃏 Party Showcase Cards & Subagent Tree
 
 | CLI Skins × Model Portraits × 4 States (`Claude / Codex / OpenCode / Gemini / Qwen / Kimi`) | Hermes / Gugugaga Fallback / Pi & 2-Level Subagent Tree |
 | :---: | :---: |
 | ![Party Cards Overview](layouts/preview-party-cards.png) | ![Party Hermes and Subagents](layouts/preview-party-subagents.png) |
 
-### 🐧 `gugugaga` 7-Character Avatar & 3-State Sprite Preview
+### 🐧 `gugugaga` 7-Character Avatar & 3-State Sprite Pool
 
 | # | Avatar (`art/gugugaga`) | Rest (`~1.13 fps`) | Working (`~6.25 fps`) | Blocked (`~3.12 fps`) |
 | :---: | :---: | :---: | :---: | :---: |
@@ -36,7 +49,7 @@
 | 6 | ![gugu-a6](mods/gugugaga-agents/art/gugugaga/a6.png) | ![gugu-6-rest](mods/gugugaga-agents/sprites/gugugaga/r/gugu-6-rest.gif) | ![gugu-6-work](mods/gugugaga-agents/sprites/gugugaga/w/gugu-6-working.gif) | ![gugu-6-block](mods/gugugaga-agents/sprites/gugugaga/b/gugu-6-blocked.gif) |
 | 7 | ![gugu-a7](mods/gugugaga-agents/art/gugugaga/a7.png) | ![gugu-7-rest](mods/gugugaga-agents/sprites/gugugaga/r/gugu-7-rest.gif) | ![gugu-7-work](mods/gugugaga-agents/sprites/gugugaga/w/gugu-7-working.gif) | ![gugu-7-block](mods/gugugaga-agents/sprites/gugugaga/b/gugu-7-blocked.gif) |
 
-### 🏰 Arctic Space Landmarks (`gugugaga-spaces`)
+### 🏰 Pixel Space Landmarks (`gugugaga-spaces`)
 
 | Igloo (`igloo`) | Lighthouse (`lighthouse`) | Fishshop (`fishshop`) | Iceberg (`iceberg`) |
 | :---: | :---: | :---: | :---: |
@@ -54,7 +67,7 @@ Copy `layouts`, `themes`, and `mods` into your Herdr config directory and switch
 $dest = "$env:USERPROFILE\.config\herdr-app"
 New-Item -ItemType Directory -Force $dest | Out-Null
 Copy-Item -Recurse -Force .\layouts, .\themes, .\mods $dest
-herdr-app do layout.switch '{\"name\":\"gugugaga\"}'
+herdr-app do layout.switch --name gugugaga
 ```
 
 ### macOS / Linux (Bash)
@@ -62,7 +75,7 @@ herdr-app do layout.switch '{\"name\":\"gugugaga\"}'
 ```bash
 DEST="$HOME/.config/herdr-app"
 mkdir -p "$DEST" && cp -R ./layouts ./themes ./mods "$DEST/"
-herdr-app do layout.switch '{"name":"gugugaga"}'
+herdr-app do layout.switch --name gugugaga
 ```
 
 > **Shortcuts**: `Ctrl + Shift + L` cycles layouts; `Ctrl + Alt + Shift + Esc` returns to the default `main` layout.
@@ -71,110 +84,75 @@ herdr-app do layout.switch '{"name":"gugugaga"}'
 
 ## 📅 Changelog
 
-### `2026-11-20`
-- **320px sidebar width**: Widened the sidebar from 268px to 320px across `layouts/gugugaga.json` and `gugugaga-chrome`, and increased space-name max widths in `gugugaga-spaces` for cleaner truncation.
-- **Party showcase card overhaul (v5 final, `gugugaga-agents`)**: Replaced the legacy 64px staggered two-lane cards with unified showcase cards separating **CLI Skin × Model Portrait × Runtime Status**:
-  - **9 CLIs / 10 sharp-corner pixel frame styles** (`ring` / `dashed` / `double` / `ornate` / `solid` / `hairline`): dimmed default states by ~35%–45% so `Focused` and `Blocked` cards pop cleanly on scan;
-  - **8 model-family portraits & 9 `12×12` pixel vendor logos** (`art/models/*.png`, `art/vendors/*.svg`): added unified deep-night `IDLE` scrim, widened left-feather text scrim, 5px portrait drop + top vignette to clear riding badges, and the `gugugaga.png` penguin portrait as the unknown-model fallback;
-  - **Refined card layout & step rail**: moved reasoning Effort below the model banner (5-cell `3×4` pixel meter + subtle label + optional custom session subtitle), embedded the arctic space landmark into a flush bottom-edge notch, and connected the left penguin sprite via a `━━┓┗━━` step rail and frameless `#Tab`;
-  - **Interactions & deeper subagent tree**: added left-drag card reordering (`localStorage` key `agents.order`) and expanded the subagent squad tree up to 3 indentation depths.
-- **Synced 9-CLI pixel badges**: Updated `gugugaga-tabs` and `gugugaga-toast` `APPS` tables with `Hermes`, `Qwen`, and `Kimi` plus aligned brand colors across all 9 CLIs.
+### `2026-11-20` (Obsidian Pixel Deck Overhaul + Split Pane Deck + `gugugaga-files`)
+- **Obsidian Pixel Deck global redesign**: Added `themes/gugugaga-obsidian.json` (keeping `gugugaga-ice.json` for compatibility), removed the snowy `sidebar-gugugaga.png` wallpaper, and unified all 8 mods around `rounded(0)` sharp geometry, neutral `#232a36` borders/outliner trunks, `#38bdf8` focus/working accent, and `Cascadia Mono` uppercase badges.
+- **Resizable sidebar & 4-tier responsive shrink (`gugugaga-agents` / `gugugaga-spaces`)**: Enabled `sidebar.resizable: true`, divided `on_size_change` measurements by `settings().zoom`, implemented `320 → 250 → 196 (layout…) → <160 (rail)` shrinking with badge collision guards and a `320 ↔ 196` quick toggle in `Party [n]`, and unified the `< 160px` rail threshold.
+- **`28px` custom split-pane header (`gugugaga-pane`)**: Switched `work-body` and `pane` to a `6px` `radius: 0` grid topped by a `28px` header featuring a `2px` CLI/blocked top bar, `2×2` focus corner studs, `16×16` CLI badge, `t1xx` terminal address tag, compact folder/branch, non-intercepting `2×3` movable grip, `↓N` scroll-bottom chip, `[Z]` zoom tag, and `20×20` hover actions.
+- **Integrated `gugugaga-files` (from `files-and-changes-addon`)**: Merged soft-wrapping `Files` & `Changes` (with zoom-corrected diff wrap, persistent `WRAP` toggle, `t.accent` `COMMIT`, and keyboard-navigable `frame: "none"` right-click open/reveal menu) into `mods/gugugaga-files/`, pixel-aligned (`h(36)`, `1px` border) with `mods/inbox/`.
+- **Tabs, Poster & AI Entry Index**: Rebuilt top-right drawer controls as `+ | FILES · CHANGES · INBOX | - □ ×` using `14×14` monochrome SVGs; produced the `1440×900` Bento gallery poster (`preview.png`), redacted full/shrink captures, updated `RECIPE.md`, and added `AGENTS.md`.
+- **Party showcase foundation**: Upgraded the legacy staggered 64px cards to unified 320px showcase cards (10 CLI skins × 8 model portraits × 3-level subagent trees).
 
 ### `2026-11-18`
-- **Standalone `layout-gugugaga` repository**: Slimmed down legacy assets into a focused Arctic Night Pixel theme pack with unified `gugugaga-*` mod naming.
-- **`gugugaga-ice` theme & 3-state sprite pool**: Shipped 7 `256×256` avatars and 21 `144×192` 3-state GIFs (`r` rest / `w` working / `b` blocked) with live folder watching and per-terminal/tab caching.
-- **Staggered party cards & subagent squad tree (`gugugaga-agents`)**: Automatic 2-lane staggering for ≥3 cards, collapsible 2D pixel subagent trees for `hc run` workers, 7 pixel agent crests (Antigravity / Pi / Claude / Codex / OpenCode / Gemini / generic), and live terminal model/effort parsing.
-- **Space outliner & arctic landmarks (`gugugaga-spaces`)**: 4 pixel-outlined arctic buildings, multi-machine outliner tree lines with fold toggles & counts, and Herdr `0.1.21` local `space.new` compatibility.
-- **Pixel tabs & RPG notification toasts (`gugugaga-tabs` / `gugugaga-toast`)**: 40×40 character portraits plus 16×16 agent crests and status pills in the tab bar, plus RPG plaque toasts with breadcrumbs and one-click `hc machine login` copy.
-- **Native Windows Inbox (`inbox`)**: OneDrive-safe Desktop detection, collision-safe file copy, and Recycle Bin deletion while preserving macOS support.
-- **Herdr gallery listing (this change)**: Added `RECIPE.md` (the build brief) and `preview.png` (the 1440×900 cover, machine names redacted); rebuilt `layouts/gugugaga.png` and `preview-gugugaga.png` so the old screenshots stop leaking a remote machine name and a local path; fixed three icon paths in `gugugaga-spaces` that still pointed at `mods/workspace-chrome/` instead of this repo's `mods/gugugaga-chrome/`.
+- **Standalone `layout-gugugaga` repository**: Shipped the 3-state penguin sprite pool (7 `256×256` avatars + 21 `144×192` GIFs), 4 space landmarks, cross-platform Windows/macOS `inbox`, and initial gallery `RECIPE.md` / `preview.png`.
 
 ---
 
-## 🤖 AI Agent Maintenance & Extension Guide
+## 🤖 AI Entry Point & Repository Structure
 
-If you are an AI Agent maintaining, debugging, or extending this repository, follow these conventions and verification steps:
-
-### 1. Repository Structure
+For detailed symbol anchors, color invariants, cross-mod sync checklists, and gotchas, see [**`AGENTS.md`**](AGENTS.md). Quick overview:
 
 ```text
 layout-gugugaga/
-├── README.md                    # Chinese guide (this file: README.en.md)
-├── RECIPE.md                    # gallery brief: what you see / how it behaves / what it is built from / pitfalls
-├── preview.png                  # gallery card cover (1440×900)
+├── AGENTS.md                        # AI entry index: anchors, palette invariants, sync rules & gotchas
+├── README.md                        # Chinese guide (this file: README.en.md)
+├── RECIPE.md                        # Herdr gallery rebuild brief
+├── preview.png                      # Herdr gallery Bento poster (1440×900)
 ├── layouts/
-│   ├── gugugaga.json            # Main layout (wires gugugaga-ice theme and mod slots)
-│   ├── gugugaga.png             # Layout picker thumbnail
-│   ├── preview-gugugaga.png     # README hero screenshot
-│   ├── preview-party-cards.png  # Party CLI skins × model portraits overview
-│   └── preview-party-subagents.png # Party Hermes / fallback penguin / subagent tree preview
+│   ├── gugugaga.json                # Main layout (8-mod slots, 6px grid, resizable sidebar)
+│   ├── gugugaga.png                 # Clean layout-picker thumbnail
+│   ├── preview-gugugaga.png         # Full workspace screenshot
+│   ├── preview-shrink-tiers.png     # 320→250→196→140 responsive shrink strip
+│   ├── preview-party-cards.png      # Multi-CLI × model portrait cards
+│   └── preview-party-subagents.png  # Hermes / fallback penguin / subagent tree
 ├── themes/
-│   └── gugugaga-ice.json        # Arctic Night color palette
+│   ├── gugugaga-obsidian.json       # Active Obsidian Pixel Deck theme
+│   └── gugugaga-ice.json            # Legacy arctic theme (kept for compatibility)
 └── mods/
-    ├── gugugaga-chrome/         # Sidebar frame, background (sidebar-gugugaga.png), and pixel UI icons
-    ├── gugugaga-spaces/         # Top-left: machine outliner tree + 4 arctic landmarks (art/gugugaga/*.png)
-    ├── gugugaga-agents/         # Bottom-left: tri-partite showcase cards, 3-level subagent tree, 9 CLI skins, 8 model portraits & 3-state sprites
-    ├── gugugaga-tabs/           # Top bar: pixel workspace tabs (9 CLI badges) and custom window controls
-    ├── gugugaga-toast/          # Overlay: RPG plaque notification toast (9 CLI badges)
-    └── inbox/                   # Drawer: cross-platform (Windows / macOS) file inbox
+    ├── gugugaga-chrome/             # Sidebar frame, collapse toggle & 30 monochrome SVGs
+    ├── gugugaga-spaces/             # Machine outliner, git polling & adaptive landmark tiles
+    ├── gugugaga-agents/             # 4-tier Party cards, 10 CLI skins, 8 model portraits & subagents
+    ├── gugugaga-tabs/               # Sharp workspace tabs & partitioned FILES/CHANGES/INBOX buttons
+    ├── gugugaga-pane/               # 28px split terminal header mod
+    ├── gugugaga-files/              # Soft-wrapping Files & Changes + open/reveal menu (Apache-2.0 derived)
+    ├── gugugaga-toast/              # Corner-studded pixel notification overlay
+    └── inbox/                       # Cross-platform file inbox over data/inbox/files
 ```
 
-### 2. Sync & `herdr-app` Verification Loop
+Check all 8 mods and runtime status on Windows:
 
-After editing files in this repo, sync `layouts/`, `themes/`, and `mods/` to the local Herdr config directory (`$env:USERPROFILE\.config\herdr-app` on Windows, `$HOME/.config/herdr-app` on macOS), then run:
-
-```bash
-# 1) Static & load check for each modified mod
-herdr-app check ~/.config/herdr-app/mods/gugugaga-agents
-
-# 2) Runtime status check: confirm layout is "gugugaga" and "errors" is []
+```powershell
+foreach ($m in @("gugugaga-agents","gugugaga-spaces","gugugaga-tabs","gugugaga-toast","gugugaga-chrome","gugugaga-pane","gugugaga-files","inbox")) {
+  herdr-app check "$env:USERPROFILE\.config\herdr-app\mods\$m"
+}
 herdr-app status
-
-# 3) Visual verification screenshot
-herdr-app shot
 ```
 
-> **Note**: All `mods/*/lib.js` files are pure JS modules with no `gpui-kit` dependency and can be unit-tested directly via `node`.
-
-### 3. Optional Local Overrides (Ignored by Git)
-
-The following two mapping files are listed in `.gitignore` as **optional local overrides—do not commit them**:
-- `mods/gugugaga-agents/jobs.json`: Tab name → character pool (e.g., `{"main": "gugugaga"}`).
-- `mods/gugugaga-spaces/places.json`: Space name → landmark (`igloo` / `lighthouse` / `fishshop` / `iceberg`).
-
-**Fallback behavior**: When missing, empty, or invalid JSON, mods deterministically assign characters and landmarks by name hash.
-
-### 4. Adding Custom 3-State Character GIFs
-
-1. **Add assets**:
-   - Place `256×256` transparent PNG avatars in `mods/gugugaga-agents/art/<job>/`.
-   - Place `144×192` transparent 3-state GIFs (`disposal=2, loop=0`) in `mods/gugugaga-agents/sprites/<job>/{r,w,b}/` (`r` = rest, `w` = working, `b` = blocked).
-2. **Register pool**:
-   - Adding files to the existing `gugugaga` folders requires no code changes (`watchFolder` + `readdir` hot-reloads automatically).
-   - For a new `<job>` name, add `"<job>"` to `JOBS` and wire `portraitPath()` / `spritePath()` in `mods/gugugaga-agents/lib.js`, `mods/gugugaga-tabs/lib.js`, and `mods/gugugaga-toast/lib.js`, plus directory scanning in each `main.js`.
-3. **Sync & verify**: Copy `mods/` to `.config/herdr-app/mods` and verify with `herdr-app check` and `herdr-app shot`.
+> Local overrides `mods/gugugaga-agents/jobs.json` and `mods/gugugaga-spaces/places.json` are listed in `.gitignore`; mods fall back deterministically by name hash when omitted.
 
 ---
 
 ## 🌐 Share on the Herdr Gallery
 
-This repo also follows the Herdr gallery layout ([herdr.dev/gallery](https://herdr.dev/gallery/?type=layouts)):
-
-- `RECIPE.md`: the brief another agent could rebuild this layout from, starting in an empty folder.
-- `preview.png`: the gallery card cover (1440×900, whole window, machine names redacted); the thumbnail in Herdr's layout picker is `layouts/gugugaga.png` instead (the same view, captured at full resolution).
-- How it gets listed: a **public** repo with the topic `herdr-layout` shows up under Community within the hour. No form, no sign up; Herdr does not review the code, only screens the cover pictures.
-
-Once listed, the entry lives at `herdr.dev/layouts/Reidouleidoi/layout-gugugaga`, and installing it is one sentence to your agent:
+Maintained in [herdr.dev/gallery](https://herdr.dev/gallery/?type=layouts) format (`RECIPE.md`, `1440×900` Bento cover `preview.png`, and `layouts/gugugaga.png`). Once listed at `herdr.dev/layouts/Reidouleidoi/layout-gugugaga`, anyone can install it with:
 
 ```text
 Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/Reidouleidoi/layout-gugugaga
 ```
 
-**Known limit**: whether the sidebar counts as collapsed is decided by its width (< 160px). On macOS, collapsing it to 76px hides the chrome mod's toggle and the sidebar is not resizable, so there is no way back yet — don't collapse it there. Windows is unaffected.
-
 ---
 
 ## 🙏 Credits & License Notes
 
-1. **Credits**: Derived from [`herdr-traveler`](https://github.com/franky5440-afk/herdr-traveler) by [@franky5440-afk](https://github.com/franky5440-afk), built for [Herdr](https://herdr.dev). Huge thanks to the original author for the pixel RPG terminal workbench concept!
-2. **Assets & Licensing**: This repository distributes only the redrawn `gugugaga` arctic pixel assets and adapted code. Because the upstream repository does not include an explicit `LICENSE` file, this repository likewise does not add a third-party license and is shared for personal/community adaptation only. Contact the original author for commercial use or redistribution of original designs.
+1. **`herdr-traveler`**: Initial pixel workbench structure and RPG party concept derived from [`herdr-traveler`](https://github.com/franky5440-afk/herdr-traveler) by [@franky5440-afk](https://github.com/franky5440-afk). Because the upstream repository has no explicit `LICENSE` file, this repository does not add a blanket third-party license.
+2. **Herdr Upstream Components (`Apache-2.0`)**: `mods/gugugaga-files/` incorporates `files-and-changes-addon`, whose `Files` and `Changes` panels are cloned from [Herdr](https://herdr.dev) 0.1.16 (`Apache-2.0`, preserving upstream file headers); `mods/gugugaga-pane/` and `mods/gugugaga-chrome/` extend Herdr's built-in pane/chrome patterns.
+3. **Original Assets & Redesign**: The `gugugaga` 3-state penguin sprites, space landmark pixel art, `gugugaga-obsidian` palette, and Obsidian Pixel Deck redesign are original to this repository.
