@@ -84,6 +84,11 @@ herdr-app do layout.switch --name gugugaga
 
 ## 📅 更新内容 (Changelog)
 
+### `2026-11-21`（素材扩充 + 模型立绘分组）
+- **企鹅三态动图扩容 (`gugugaga-agents`)**：`sprites/gugugaga/{r,w,b}` 新增 14 枚 `144×192` 四帧 GIF（`r` 12 / `w` 11 / `b` 12），补上打铁、煮汤、浇花、审批请求、上锁 SOS、`Blocked` 沙漏等动作。
+- **模型立绘改按家族目录**：`art/models/<family>/` 取代扁平 `<family>.png`，同族可放多张变体，由资源池随机抽取（每个终端固定不变）；`grok-2` / `kimi-2` 重裁到与池内一致的剪影高度、脸心对齐 60%。
+- **新增静态头像留档**：`art/portraits/` 22 张头像 PNG，不入动画池。
+
 ### `2026-11-20`（Obsidian Pixel Deck 全局重构 + 分屏顶栏 + `gugugaga-files` 集成）
 - **全局升级为「黑曜石像素机能台」**：添加 `themes/gugugaga-obsidian.json`（保留 `gugugaga-ice.json` 兼容），撤除 `sidebar-gugugaga.png` 雪花壁纸与泛蓝雪雾底色；全站 8 个 Mod 统一 `rounded(0)` 零圆角、中性炭灰树干/边框（`#232a36`）与 `Cascadia Mono` 全大写状态扣。
 - **侧栏可拖拽与 4 档自适应收缩 (`gugugaga-agents` / `gugugaga-spaces`)**：开启 `sidebar.resizable: true`，修复 `on_size_change` 在 UI 缩放下未除 `settings().zoom` 的偏差；实现 `320 → 250（收起立绘）→ 196（仅露 layout…）→ <160（轨栏）` 四档平滑收缩，并添加 `Party [n]` 右侧 `320 ↔ 196` 一键切换扣；同步统一 `< 160` 窄轨阈值。

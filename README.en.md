@@ -84,6 +84,11 @@ herdr-app do layout.switch --name gugugaga
 
 ## 📅 Changelog
 
+### `2026-11-21` (Asset expansion + per-family model art)
+- **More 3-state penguin sprites (`gugugaga-agents`)**: 14 new `144×192` four-frame GIFs in `sprites/gugugaga/{r,w,b}` (`r` 12 / `w` 11 / `b` 12) covering anvil forging, cooking, watering, approval requests, locked-gate SOS and a `Blocked` hourglass.
+- **Model art moved to per-family folders**: `art/models/<family>/` replaces the flat `<family>.png`, so a family can hold several variants picked per terminal; `grok-2` / `kimi-2` were re-cut to the pool's silhouette height with the face centred at 60%.
+- **Archived head portraits**: 22 static PNGs in `art/portraits/`, kept out of the sprite pools.
+
 ### `2026-11-20` (Obsidian Pixel Deck Overhaul + Split Pane Deck + `gugugaga-files`)
 - **Obsidian Pixel Deck global redesign**: Added `themes/gugugaga-obsidian.json` (keeping `gugugaga-ice.json` for compatibility), removed the snowy `sidebar-gugugaga.png` wallpaper, and unified all 8 mods around `rounded(0)` sharp geometry, neutral `#232a36` borders/outliner trunks, `#38bdf8` focus/working accent, and `Cascadia Mono` uppercase badges.
 - **Resizable sidebar & 4-tier responsive shrink (`gugugaga-agents` / `gugugaga-spaces`)**: Enabled `sidebar.resizable: true`, divided `on_size_change` measurements by `settings().zoom`, implemented `320 → 250 → 196 (layout…) → <160 (rail)` shrinking with badge collision guards and a `320 ↔ 196` quick toggle in `Party [n]`, and unified the `< 160px` rail threshold.
