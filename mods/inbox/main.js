@@ -1,7 +1,7 @@
-// 收件匣：列出 appHome()/data/inbox/files 的檔案，點一下用系統預設 App 開啟。
-// 右鍵：複製到桌面（不覆蓋）、丟到垃圾桶（可救回）；此外不寫檔、不連網，
-// 檔名一律當文字顯示，exec 一律用參數陣列。
-// macOS 走原版 BSD 指令；Windows 走 PowerShell（路徑在 lib.js 依 platform 決定）。
+// 收件箱：列出 appHome()/data/inbox/files 的文件，点一下用系统默认 App 打开。
+// 右键：复制到桌面（不覆盖）、丢到垃圾桶（可救回）；此外不写档、不连网，
+// 文件名一律当文本显示，exec 一律用参数数组。
+// macOS 走原版 BSD 指令；Windows 走 PowerShell（路径在 lib.js 依 platform 决定）。
 import { View, div, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { appHome, exec, home, theme, watchFolder, window } from "herdr";
@@ -13,7 +13,7 @@ import {
 const INBOX_DIR = appHome() + "/data/inbox/files";
 const DESKTOP_DIR = home() + "/Desktop";
 const MONO_FONT = "Cascadia Mono";
-// 類型扣：短大寫標籤 + 2px 左側類型色條。
+// 类型扣：短大写标签 + 2px 左侧类型色条。
 const BADGE = { image: "IMG", video: "VID", pdf: "PDF", text: "MD" };
 const BADGE_COLOR = { image: "#38bdf8", video: "#a78bfa", pdf: "#ffb547", text: "#6ee7b7" };
 
@@ -34,7 +34,7 @@ export default class Inbox extends View {
     this.platform = window()?.platform ?? null;
     this.desktop = DESKTOP_DIR;
     cx.spawn(async (cx) => {
-      // Windows 的桌面可能在 OneDrive 底下，問系統要真正的那一個。
+      // Windows 的桌面可能在 OneDrive 底下，问系统要真正的那一个。
       if (this.platform === "windows") {
         const asked = await exec("powershell", ["-NoProfile", "-NonInteractive", "-Command", "[Environment]::GetFolderPath('Desktop')"]).catch(() => null);
         const found = asked && asked.code === 0 ? asked.stdout.trim() : "";
@@ -76,7 +76,7 @@ export default class Inbox extends View {
     cx.notify();
   }
 
-  // 動手前一律複查：還是收件匣裡的一般檔案（不是符號連結）。
+  // 动手前一律复查：还是收件箱里的一般文件（不是符号链接）。
   async stillRegular(item) {
     const stat = statCommand(item.path, this.platform);
     const checked = await exec(stat.cmd, stat.args).catch(() => null);
@@ -89,7 +89,7 @@ export default class Inbox extends View {
     cx.notify();
   }
 
-  // 點一列：先確認還是收件匣裡的一般檔案，再交給 open。
+  // 点一列：先确认还是收件箱里的一般文件，再交给 open。
   launch(item, cx) {
     this.menuPath = null;
     cx.spawn(async (cx) => {
@@ -105,7 +105,7 @@ export default class Inbox extends View {
     });
   }
 
-  // 複製到桌面：原名先試，撞名就換「 2」「 3」…，cp -n 保證不蓋掉桌面上的檔案。
+  // 复制到桌面：原名先试，撞名就换「 2」「 3」…，cp -n 保证不盖掉桌面上的文件。
   copyToDesktop(item, cx) {
     this.menuPath = null;
     cx.spawn(async (cx) => {
@@ -121,7 +121,7 @@ export default class Inbox extends View {
     });
   }
 
-  // 丟到垃圾桶：macOS 用內建 trash，Windows 用資源回收筒，誤刪都可以救回。
+  // 丢到垃圾桶：macOS 用内置 trash，Windows 用资源回收筒，误删都可以救回。
   moveToTrash(item, cx) {
     this.menuPath = null;
     cx.spawn(async (cx) => {

@@ -1,15 +1,15 @@
-// 旅人通知 Toast MOD 的純函式：不碰 herdr / gpui-kit，可以被 node 直接載入測試。
+// 旅人通知 Toast MOD 的纯函数：不碰 herdr / gpui-kit，可以被 node 直接加载测试。
 
 export const JOBS = [
-  // 本倉庫只發 gugugaga 一套素材；原 8 職業、maomeme/maid 與 dora 的圖已移到
-  // ../archive-traveler-dora/ 備份，不再隨倉庫發佈。
+  // 本仓库只发 gugugaga 一套素材；原 8 职业、maomeme/maid 与 dora 的图已移到
+  // ../archive-traveler-dora/ 备份，不再随仓库发布。
   "gugugaga",
 ];
 
 const JOB_SET = new Set(JOBS);
 
-// 動態資源池：預設用已知清單兜底，啟動與資料夾異動時由 main.js 透過 readdir 覆蓋，
-// 確保手動增刪 art/gugugaga 或 sprites/gugugaga/{r,w,b} 檔案時不會抽到已刪除的圖。
+// 动态资源池：默认用已知清单兜底，启动与文件夹异动时由 main.js 通过 readdir 覆盖，
+// 确保手动增删 art/gugugaga 或 sprites/gugugaga/{r,w,b} 文件时不会抽到已删除的图。
 let GUGUGAGA_POOLS = {
   portrait: ["mods/gugugaga-agents/art/gugugaga/a1.png"],
   rest: ["mods/gugugaga-agents/sprites/gugugaga/r/gugu-rest.gif"],
@@ -23,8 +23,8 @@ export function setGugugagaPools(next) {
   }
 }
 
-// 抽選快取：`key|state -> 檔名`。同一個 tab/agent 在同一狀態下永遠拿同一張，
-// 只有狀態變了（key 不同）或檔案被刪除或模組重載才會重新隨機，避免每次 render 亂跳。
+// 抽选缓存：`key|state -> 文件名`。同一个 tab/agent 在同一状态下永远拿同一张，
+// 只有状态变了（key 不同）或文件被删除或模块重载才会重新随机，避免每次 render 乱跳。
 const PICKS = new Map();
 export function resetPicks() { PICKS.clear(); }
 function pick(key, state, pool) {
@@ -92,13 +92,13 @@ export function jobIn(name, assigned) {
   return typeof name === "string" ? assigned.get(nameKey(name)) ?? null : null;
 }
 
-// 肖像：從 art/gugugaga/ 隨機抽選（256x256 方圖），同一個 tab/agent 固定同一張不閃爍。
+// 肖像：从 art/gugugaga/ 随机抽选（256x256 方图），同一个 tab/agent 固定同一张不闪烁。
 export function portraitPath(job, key) {
   if (job === "gugugaga") return pick(key, "portrait", GUGUGAGA_POOLS.portrait);
   return null;
 }
 
-// 全身動圖：依狀態從 w/（工作）、b/（阻擋）、r/（其餘）抽選，狀態不變就不換圖。
+// 全身动图：依状态从 w/（工作）、b/（阻挡）、r/（其余）抽选，状态不变就不换图。
 export function spritePath(job, status, key) {
   const state = status === "working" ? "working" : status === "blocked" ? "blocked" : "rest";
   if (job === "gugugaga") return pick(key, state, GUGUGAGA_POOLS[state]);
@@ -230,7 +230,7 @@ export function resolveToastContext({ props, spacesList, agentsList, panesList, 
   const assigned = assignJobs(tabNames(allSpaces, allAgents), jobs);
   const rawTabName = matchedTab?.name ?? matchedAgent?.tab_name ?? parsed.tabName;
   const toastStatus = resolveToastStatus(p.level, p.title);
-  // 依通知狀態抽全身圖（working / blocked / 其餘），以 tab 名快取避免閃爍。
+  // 依通知状态抽全身图（working / blocked / 其余），以 tab 名缓存避免闪烁。
   const jobKey = rawTabName ? String(rawTabName) : "";
   const sprite = jobKey ? spritePath(jobIn(jobKey, assigned), toastStatus.key, jobKey) : null;
   const portrait = sprite ? null : rawTabName ? portraitPath(jobIn(String(rawTabName), assigned), jobKey) : null;

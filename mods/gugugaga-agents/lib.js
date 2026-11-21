@@ -1,20 +1,20 @@
-// 旅人卡片 MOD 的純函式：不碰 herdr / gpui-kit，可以被 node 直接載入測試。
-// 這裡只做資料處理；讀快取、畫畫面都在 main.js。
+// 旅人卡片 MOD 的纯函数：不碰 herdr / gpui-kit，可以被 node 直接加载测试。
+// 这里只做数据处理；读缓存、画画面都在 main.js。
 
 export const JOBS = [
-  // 本倉庫只發 gugugaga 一套素材；原 8 職業、maomeme/maid 與 dora 的圖已移到
-  // ../archive-traveler-dora/ 備份，不再隨倉庫發佈。
+  // 本仓库只发 gugugaga 一套素材；原 8 职业、maomeme/maid 与 dora 的图已移到
+  // ../archive-traveler-dora/ 备份，不再随仓库发布。
   "gugugaga",
 ];
 
-// 快取超過這麼久就標「舊」：statusLine 每次回應都會重寫，5 分鐘沒動就不算即時。
+// 缓存超过这么久就标「旧」：statusLine 每次回应都会重写，5 分钟没动就不算即时。
 export const STALE_SECONDS = 300;
 
 const JOB_SET = new Set(JOBS);
 const SESSIONS_DIR = "data/traveler/sessions";
 
-// 動態資源池：預設用已知清單兜底，啟動與資料夾異動時由 main.js 透過 readdir 覆蓋，
-// 確保手動增刪 art/gugugaga 或 sprites/gugugaga/{r,w,b} 檔案時不會抽到已刪除的圖。
+// 动态资源池：默认用已知清单兜底，启动与文件夹异动时由 main.js 通过 readdir 覆盖，
+// 确保手动增删 art/gugugaga 或 sprites/gugugaga/{r,w,b} 文件时不会抽到已删除的图。
 let GUGUGAGA_POOLS = {
   portrait: ["mods/gugugaga-agents/art/gugugaga/a1.png"],
   rest: ["mods/gugugaga-agents/sprites/gugugaga/r/gugu-rest.gif"],
@@ -28,8 +28,8 @@ export function setGugugagaPools(next) {
   }
 }
 
-// 抽選快取：`key|state -> 檔名`。每個 agent(address) 與狀態各自獨立快取，
-// 互不影響；只有該檔案被手動刪除或模組重載時才會重新隨機。
+// 抽选缓存：`key|state -> 文件名`。每个 agent(address) 与状态各自独立缓存，
+// 互不影响；只有该文件被手动删除或模块重载时才会重新随机。
 const PICKS = new Map();
 export function resetPicks() { PICKS.clear(); }
 function pick(key, state, pool) {
@@ -43,38 +43,38 @@ function pick(key, state, pool) {
 }
 
 
-// 本機終端機代號：跟 scripts/traveler-statusline.mjs 寫檔名的規則一致，不收路徑字元。
+// 本机终端代号：跟 scripts/traveler-statusline.mjs 写文件名的规则一致，不收路径字符。
 const LOCAL_ID = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
-// 0–100 的有限數才算百分比，其餘（含 null、字串、超出範圍）都當沒有資料。
+// 0–100 的有限数才算百分比，其余（含 null、字符串、超出范围）都当没有数据。
 function pct(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100
     ? value
     : null;
 }
 
-// 字串欄位：去掉控制字元與文字方向控制字元、收斂空白、去頭尾，最多 max 字；
-// 跟 scripts/traveler-statusline.mjs 同一套規則，讀的時候再擋一次。
+// 字符串字段：去掉控制字符与文本方向控制字符、收敛空白、去头尾，最多 max 字；
+// 跟 scripts/traveler-statusline.mjs 同一套规则，读的时候再挡一次。
 function cleanText(value, max) {
   if (typeof value !== "string") return null;
   const s = value.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, "").replace(/\s+/g, " ").trim();
   return s === "" ? null : [...s].slice(0, max).join("");
 }
 
-// session 名稱（Claude Code 的 /rename）最多 80 字。
+// session 名称（Claude Code 的 /rename）最多 80 字。
 const NAME_MAX = 80;
 export function cleanName(value) {
   return cleanText(value, NAME_MAX);
 }
 
-// 模型與 effort 名稱比 session 名稱短：卡片上一行放得下就好。
+// 模型与 effort 名称比 session 名称短：卡片上一行放得下就好。
 const MODEL_MAX = 40;
 function cleanModel(value) {
   return cleanText(value, MODEL_MAX);
 }
 
-// 分頁名稱配職業：完全相符才配，不分大小寫、忽略前後空白。
-// 只掃自己的鍵，所以 constructor、__proto__ 這類原型鏈名稱不會誤中。
+// 分页名称配职业：完全相符才配，不分大小写、忽略前后空白。
+// 只扫自己的键，所以 constructor、__proto__ 这类原型链名称不会误中。
 export function jobFor(name, jobs) {
   if (typeof name !== "string") return null;
   const wanted = name.trim().toLowerCase();
@@ -88,7 +88,7 @@ export function jobFor(name, jobs) {
   return null;
 }
 
-// 目前所有分頁的名稱，依畫面順序，再補只出現在 agents 的。新分頁排在後面，舊分頁就不會換人。
+// 目前所有分页的名称，依画面顺序，再补只出现在 agents 的。新分页排在后面，旧分页就不会换人。
 export function tabNames(spaces, agents) {
   return [
     ...(spaces ?? []).flatMap((s) => (s.tabs ?? []).map((t) => t.name)),
@@ -98,7 +98,7 @@ export function tabNames(spaces, agents) {
 
 const nameKey = (name) => name.trim().toLowerCase();
 
-// 配職業：jobs.json 有寫的優先，其餘依名稱起算、跳過已被用掉的，八位都用完才重複。
+// 配职业：jobs.json 有写的优先，其余依名称起算、跳过已被用掉的，八位都用完才重复。
 export function assignJobs(names, jobs) {
   const list = [...new Set((names ?? []).filter((n) => typeof n === "string" && n.trim() !== "").map(nameKey))];
   const out = new Map();
@@ -122,21 +122,21 @@ export function jobIn(name, assigned) {
   return typeof name === "string" ? assigned.get(nameKey(name)) ?? null : null;
 }
 
-// image() 只讀 Herdr 家目錄的相對路徑；只給已知角色，避免組出跳脫路徑。
-// 肖像：從 art/gugugaga/ 隨機抽選（256x256 方圖），同一個 tab/agent 固定同一張不閃爍。
+// image() 只读 Herdr 家目录的相对路径；只给已知角色，避免组出跳脱路径。
+// 肖像：从 art/gugugaga/ 随机抽选（256x256 方图），同一个 tab/agent 固定同一张不闪烁。
 export function portraitPath(job, key) {
   if (job === "gugugaga") return pick(key, "portrait", GUGUGAGA_POOLS.portrait);
   return null;
 }
 
-// 全身動圖：依狀態從 w/（工作）、b/（阻擋）、r/（其餘）抽選，狀態不變就不換圖。
+// 全身动图：依状态从 w/（工作）、b/（阻挡）、r/（其余）抽选，状态不变就不换图。
 export function spritePath(job, status, key) {
   const state = status === "working" ? "working" : status === "blocked" ? "blocked" : "rest";
   if (job === "gugugaga") return pick(key, state, GUGUGAGA_POOLS[state]);
   return null;
 }
 
-// 程式與 Agent 識別：看 agent 回報的 app（OSC 7501）或 program key/name，提供顯示名、像素 Logo 与代表色。
+// 程序与 Agent 识别：看 agent 回报的 app（OSC 7501）或 program key/name，提供显示名、像素 Logo 与代表色。
 const APPS = new Map([
   ["antigravity", { text: "Antigravity", short: "AGY", builder: true, cli: "antigravity", logo: "mods/gugugaga-agents/art/logo-antigravity.svg", color: "#38bdf8" }],
   ["pi", { text: "Pi", short: "pi", builder: true, cli: "pi", logo: "mods/gugugaga-agents/art/logo-pi.svg", color: "#00d4ff" }],
@@ -146,7 +146,7 @@ const APPS = new Map([
   ["opencode", { text: "OpenCode", short: "OpenCode", builder: true, cli: "opencode", logo: "mods/gugugaga-agents/art/logo-opencode.svg", color: "#fab283" }],
   ["gemini", { text: "Gemini", short: "Gemini", builder: true, cli: "gemini", logo: "mods/gugugaga-agents/art/logo-gemini.svg", color: "#7aa8ff" }],
   ["gemini-cli", { text: "Gemini", short: "Gemini", builder: true, cli: "gemini", logo: "mods/gugugaga-agents/art/logo-gemini.svg", color: "#7aa8ff" }],
-  // 12x12 crispEdges 像素 SVG 全 CLI 統一使用
+  // 12x12 crispEdges 像素 SVG 全 CLI 统一使用
   ["hermes", { text: "Hermes", short: "Hermes", builder: true, cli: "hermes", logo: "mods/gugugaga-agents/art/logo-hermes.svg", color: "#eab354" }],
   ["qwen", { text: "Qwen", short: "Qwen", builder: true, cli: "qwen", logo: "mods/gugugaga-agents/art/logo-qwen.svg", color: "#7aa2ff" }],
   ["qwen-code", { text: "Qwen", short: "Qwen", builder: true, cli: "qwen", logo: "mods/gugugaga-agents/art/logo-qwen.svg", color: "#7aa2ff" }],
@@ -187,7 +187,7 @@ export function resolveAppInfo(a) {
   };
 }
 
-// 解析終端畫面最後幾行的模型與思考強度（無 session 快取時作为 fallback）。
+// 解析终端画面最后几行的模型与思考强度（无 session 缓存时作为 fallback）。
 export function parseTerminalModel(screenText, appKey) {
   if (typeof screenText !== "string" || screenText.trim() === "") return null;
   const lines = screenText
@@ -248,7 +248,7 @@ export function parseTerminalModel(screenText, appKey) {
   return null;
 }
 
-// 快取只給本機終端機；遠端代號（vps/t7）沒有本機檔案。
+// 缓存只给本机终端；远程代号（vps/t7）没有本机文件。
 export function cachePath(appHomeDir, address) {
   if (typeof appHomeDir !== "string") return null;
   const base = appHomeDir.replace(/\/+$/, "");
@@ -257,8 +257,8 @@ export function cachePath(appHomeDir, address) {
   return `${base}/${SESSIONS_DIR}/${address}.json`;
 }
 
-// 遠端 agent（imac/t1）：那台自己的 statusLine 寫在它的預設 Herdr 資料夾，
-// readTextFile 帶 on 時相對路徑從那台的家目錄算起（2026-11-03 用 hc file read --on 實測）。
+// 远程 agent（imac/t1）：那台自己的 statusLine 写在它的默认 Herdr 文件夹，
+// readTextFile 带 on 时相对路径从那台的家目录算起（2026-11-03 用 hc file read --on 实测）。
 const MACHINE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export function remoteCachePath(address) {
   if (typeof address !== "string") return null;
@@ -267,8 +267,8 @@ export function remoteCachePath(address) {
   return { on: parts[0], path: `.config/herdr-app/${SESSIONS_DIR}/${parts[1]}.json` };
 }
 
-// 快取內容：{ updatedAt, contextRemainingPct, fiveHourRemainingPct, sessionName, model, effort }。
-// 單一欄位壞掉只讓該欄位變 null；updatedAt 不合法就整份當作讀不到。
+// 缓存内容：{ updatedAt, contextRemainingPct, fiveHourRemainingPct, sessionName, model, effort }。
+// 单一字段坏掉只让该字段变 null；updatedAt 不合法就整份当作读不到。
 export function parseCache(text) {
   if (typeof text !== "string" || text.trim() === "") return null;
   let data;
@@ -290,7 +290,7 @@ export function parseCache(text) {
   };
 }
 
-// 卡片上的「模型 · effort」一行：沒有模型就不顯示（effort 單獨出現沒有意義）。
+// 卡片上的「模型 · effort」一行：没有模型就不显示（effort 单独出现没有意义）。
 export function modelText(model, effort) {
   const m = cleanModel(model);
   if (m === null) return null;
@@ -300,8 +300,8 @@ export function modelText(model, effort) {
   return `${m} · ${shortEffort}`;
 }
 
-// 一條 HP/SP 條要畫的東西：沒有數字（或沒有時間戳）就顯示「—」且不填色；
-// 過舊只加標記，數字照實顯示，不改寫成別的值。
+// 一条 HP/SP 条要画的东西：没有数字（或没有时间戳）就显示「—」且不填色；
+// 过旧只加标记，数字照实显示，不改写成别的值。
 export function gauge(value, updatedAt, now) {
   const p = pct(value);
   const at =
@@ -313,25 +313,38 @@ export function gauge(value, updatedAt, now) {
   return { text: `${p}%`, pct: p, stale };
 }
 
-// ── 模型家族：卡片右側立繪、主題色與名字都依模型家族決定 ────────────────────
-// art 是相對 Herdr 家目錄的路徑，圖檔在 mods/gugugaga-agents/art/models/。
-// 色板依 agy-c 的「Gugugaga 冰夜像素銘牌」規範：primary 是模型主色，
-// plate 是框底混色，frame / hover 是粗框常態與懸停色。
+// ── 模型家族：卡片右侧立绘、主题色与名字都依模型家族决定 ────────────────────
+// art 是相对 Herdr 家目录的路径，图档按家族放在 mods/gugugaga-agents/art/models/<family>/。
+// 色板依 agy-c 的「Gugugaga 冰夜像素铭牌」规范：primary 是模型主色，
+// plate 是框底混色，frame / hover 是粗框常态与悬停色。
 export const MODEL_FAMILIES = {
-  deepseek: { label: "DeepSeek", primary: "#4fa8ff", plate: "#0f1b2e", frame: "#264163", hover: "#3f6fa3", art: "mods/gugugaga-agents/art/models/deepseek.png", vendorLogo: "mods/gugugaga-agents/art/vendors/deepseek.svg" },
-  gpt: { label: "ChatGPT", primary: "#98e2d8", plate: "#111e24", frame: "#2b454c", hover: "#4d7d82", art: "mods/gugugaga-agents/art/models/chatgpt.png", vendorLogo: "mods/gugugaga-agents/art/vendors/gpt.svg" },
-  claude: { label: "Claude", primary: "#e88b5a", plate: "#1c161d", frame: "#4a3533", hover: "#7d5244", art: "mods/gugugaga-agents/art/models/claude.png", vendorLogo: "mods/gugugaga-agents/art/vendors/claude.svg" },
-  gemini: { label: "Gemini", primary: "#9d96ff", plate: "#141529", frame: "#33355c", hover: "#595a94", art: "mods/gugugaga-agents/art/models/gemini.png", vendorLogo: "mods/gugugaga-agents/art/vendors/gemini.svg" },
-  glm: { label: "GLM", primary: "#a6bdd4", plate: "#151c27", frame: "#344254", hover: "#576d87", art: "mods/gugugaga-agents/art/models/glm.png", vendorLogo: "mods/gugugaga-agents/art/vendors/glm.svg", moon: true },
-  grok: { label: "Grok", primary: "#e86f82", plate: "#1d131c", frame: "#4d2d3b", hover: "#82475a", art: "mods/gugugaga-agents/art/models/grok.png", vendorLogo: "mods/gugugaga-agents/art/vendors/grok.svg" },
-  kimi: { label: "Kimi", primary: "#c6b8ff", plate: "#151624", frame: "#383854", hover: "#605e8a", art: "mods/gugugaga-agents/art/models/kimi.png", vendorLogo: "mods/gugugaga-agents/art/vendors/kimi.svg" },
-  qwen: { label: "Qwen", primary: "#6f96ff", plate: "#11182c", frame: "#2a3a61", hover: "#48629e", art: "mods/gugugaga-agents/art/models/qwen.png", vendorLogo: "mods/gugugaga-agents/art/vendors/qwen.svg" },
+  deepseek: { label: "DeepSeek", primary: "#4fa8ff", plate: "#0f1b2e", frame: "#264163", hover: "#3f6fa3", art: "mods/gugugaga-agents/art/models/deepseek/deepseek.png", vendorLogo: "mods/gugugaga-agents/art/vendors/deepseek.svg" },
+  gpt: { label: "ChatGPT", primary: "#98e2d8", plate: "#111e24", frame: "#2b454c", hover: "#4d7d82", art: "mods/gugugaga-agents/art/models/gpt/chatgpt.png", vendorLogo: "mods/gugugaga-agents/art/vendors/gpt.svg" },
+  claude: { label: "Claude", primary: "#e88b5a", plate: "#1c161d", frame: "#4a3533", hover: "#7d5244", art: "mods/gugugaga-agents/art/models/claude/claude.png", vendorLogo: "mods/gugugaga-agents/art/vendors/claude.svg" },
+  gemini: { label: "Gemini", primary: "#9d96ff", plate: "#141529", frame: "#33355c", hover: "#595a94", art: "mods/gugugaga-agents/art/models/gemini/gemini.png", vendorLogo: "mods/gugugaga-agents/art/vendors/gemini.svg" },
+  glm: { label: "GLM", primary: "#a6bdd4", plate: "#151c27", frame: "#344254", hover: "#576d87", art: "mods/gugugaga-agents/art/models/glm/glm.png", vendorLogo: "mods/gugugaga-agents/art/vendors/glm.svg", moon: true },
+  grok: { label: "Grok", primary: "#e86f82", plate: "#1d131c", frame: "#4d2d3b", hover: "#82475a", art: "mods/gugugaga-agents/art/models/grok/grok.png", vendorLogo: "mods/gugugaga-agents/art/vendors/grok.svg" },
+  kimi: { label: "Kimi", primary: "#c6b8ff", plate: "#151624", frame: "#383854", hover: "#605e8a", art: "mods/gugugaga-agents/art/models/kimi/kimi.png", vendorLogo: "mods/gugugaga-agents/art/vendors/kimi.svg" },
+  qwen: { label: "Qwen", primary: "#6f96ff", plate: "#11182c", frame: "#2a3a61", hover: "#48629e", art: "mods/gugugaga-agents/art/models/qwen/qwen.png", vendorLogo: "mods/gugugaga-agents/art/vendors/qwen.svg" },
 };
 
-// 認不出模型時的兜底色與咕咕嘎嘎立繪：沿用 gugugaga-ice 的冰藍與企鵝兜底圖。
-export const UNKNOWN_FAMILY = { key: "unknown", label: "Agent", primary: "#8ccaff", plate: "#111926", frame: "#2a3a50", hover: "#4a6486", art: "mods/gugugaga-agents/art/models/gugugaga.png", vendorLogo: "mods/gugugaga-agents/art/vendors/agent.svg" };
+// 认不出模型时的兜底色与咕咕嘎嘎立绘：沿用 gugugaga-ice 的冰蓝与企鹅兜底图。
+export const UNKNOWN_FAMILY = { key: "unknown", label: "Agent", primary: "#8ccaff", plate: "#111926", frame: "#2a3a50", hover: "#4a6486", art: "mods/gugugaga-agents/art/models/unknown/gugugaga.png", vendorLogo: "mods/gugugaga-agents/art/vendors/agent.svg" };
 
-// 認模型字串：順序有意義（claude 先於 gpt，免得 o1 之類的片段誤判）。
+// 模型立绘动态资源池：启动与文件夹异动时由 main.js 扫描 art/models/<family>/ 覆盖，
+// 与左侧 gugugaga 动图一样使用 PICKS 随机抽选；立绘为静态图，仅在切换模型或增删文件时生效。
+export const MODEL_POOL_KEYS = [...Object.keys(MODEL_FAMILIES), UNKNOWN_FAMILY.key];
+let MODEL_POOLS = Object.fromEntries(
+  MODEL_POOL_KEYS.map((k) => [k, [(MODEL_FAMILIES[k] ?? UNKNOWN_FAMILY).art]]),
+);
+export function setModelPools(next) {
+  if (!next || typeof next !== "object") return;
+  for (const k of MODEL_POOL_KEYS) {
+    if (Array.isArray(next[k])) MODEL_POOLS[k] = next[k];
+  }
+}
+
+// 认模型字符串：顺序有意义（claude 先于 gpt，免得 o1 之类的片段误判）。
 const FAMILY_RULES = [
   ["deepseek", /(?:^|[\s/_-])deepseek/i],
   ["claude", /claude|(?:^|[\s/_-])(?:opus|sonnet|haiku)(?:[\s/_-]|$)/i],
@@ -343,7 +356,7 @@ const FAMILY_RULES = [
   ["gpt", /chatgpt|(?:^|[\s/_-])gpt|(?:^|[\s/_-])o[134](?:[\s/_.-]|$)|davinci|codex/i],
 ];
 
-// app 當線索：沒有模型字串時（例如還沒讀到 statusLine）至少能猜到家族。
+// app 当线索：没有模型字符串时（例如还没读到 statusLine）至少能猜到家族。
 const APP_FAMILY = {
   "claude-code": "claude",
   claude: "claude",
@@ -352,7 +365,7 @@ const APP_FAMILY = {
   "gemini-cli": "gemini",
 };
 
-// model 可以是 null；appKey 可省略。認不出來就回 null，呼叫端用 Agent 自己的色。
+// model 可以是 null；appKey 可省略。认不出来就回 null，调用端用 Agent 自己的色。
 export function modelFamily(model, appKey) {
   const s = typeof model === "string" ? model : "";
   for (const [key, re] of FAMILY_RULES) {
@@ -364,13 +377,19 @@ export function modelFamily(model, appKey) {
   return { ...UNKNOWN_FAMILY };
 }
 
-// 立繪路徑：家族有圖才回傳，沒有就 null（卡片留空，不畫破圖）。
-export function modelArt(model, appKey) {
-  return modelFamily(model, appKey).art ?? null;
+// 立绘路径：依模型家族从资源池随机抽选，同一个 agent 与模型家族缓存同一张不闪烁，
+// 家族有图才回传，没有就 null（卡片留空，不画破图）。
+export function modelArtForFamily(familyKey, key) {
+  const k = typeof familyKey === "string" && MODEL_POOLS[familyKey] ? familyKey : UNKNOWN_FAMILY.key;
+  return pick(key, `model:${k}`, MODEL_POOLS[k]);
 }
 
-// 模型字串有時帶 provider 前綴（anthropic/claude-sonnet-4）與尾部日期戳
-// （-20250929）；太長才切前綴，日期戳一律剝掉。完整原名另由呼叫端保留給 tooltip。
+export function modelArt(model, appKey, key) {
+  return modelArtForFamily(modelFamily(model, appKey).key, key);
+}
+
+// 模型字符串有时带 provider 前缀（anthropic/claude-sonnet-4）与尾部日期戳
+// （-20250929）；太长才切前缀，日期戳一律剥掉。完整原名另由调用端保留给 tooltip。
 const DATE_STAMP = /[-_](?:19|20)\d{6}$/;
 export function modelLabel(model) {
   let m = cleanModel(model);
@@ -381,7 +400,7 @@ export function modelLabel(model) {
   return cut >= 0 && cut < m.length - 1 ? m.slice(cut + 1) : m;
 }
 
-// 思考強度像素格規：回傳 5 格亮滅陣列與大寫等寬標籤；無 effort 回傳 null。
+// 思考强度像素格规：回传 5 格亮灭数组与大写等宽标签；无 effort 回传 null。
 const EFFORT_SPECS = {
   minimal: { cells: [true, false, false, false, false], label: "MIN" },
   low:     { cells: [true, true, false, false, false], label: "LOW" },
@@ -400,7 +419,7 @@ export function effortSpec(effort) {
   return { cells: [true, true, true, false, false], label: key.toUpperCase() };
 }
 
-// 副標上下文名稱：優先取自訂 session 名稱（cache.name），其次取非純數字且不與 space 重複的 tab_name。
+// 副标上下文名称：优先取自订 session 名称（cache.name），其次取非纯数字且不与 space 重复的 tab_name。
 export function contextLabel(cacheName, tabName, { model = null, rawModel = null, spaceName = null } = {}) {
   const sameAs = (v, other) =>
     typeof other === "string" && other.trim() !== "" && v.toLowerCase() === other.trim().toLowerCase();
@@ -411,10 +430,10 @@ export function contextLabel(cacheName, tabName, { model = null, rawModel = null
   return null;
 }
 
-// ── Space 建築圖示：跟 gugugaga-spaces 同一套規則（places.json 優先，否則名稱哈希）──
+// ── Space 建筑图标：跟 gugugaga-spaces 同一套规则（places.json 优先，否则名称哈希）──
 export const GUGUGAGA_PLACES = ["igloo", "lighthouse", "fishshop", "iceberg"];
 
-// 回傳 place 名稱；recognized 之外的一律依名稱固定配一個，排序不會換。
+// 回传 place 名称；recognized 之外的一律依名称固定配一个，排序不会换。
 export function spacePlace(name, places) {
   const n = typeof name === "string" && name !== "" ? name : "~";
   const picked = places && typeof places === "object" ? places[n] : null;
@@ -427,9 +446,9 @@ export function spacePlaceArt(name, places) {
   return `mods/gugugaga-spaces/art/gugugaga/${spacePlace(name, places)}.png`;
 }
 
-// ── Agent CLI 皮膚：外框/底面/羽化/側脊歸 CLI，立繪/模型色歸 Model ──────────
-// 純資料表，main.js 依 style 畫框；三態索引 index 0=default / 1=hovered / 2=focused。
-// frameBorder + cabinInset 恆等於 3：任何流派都保住內艙 234x90、立繪 112x90。
+// ── Agent CLI 皮肤：外框/底面/羽化/侧脊归 CLI，立绘/模型色归 Model ──────────
+// 纯数据表，main.js 依 style 画框；三态索引 index 0=default / 1=hovered / 2=focused。
+// frameBorder + cabinInset 恒等于 3：任何流派都保住内舱 234x90、立绘 112x90。
 export const CLI_SKINS = {
   antigravity: {
     style: "ring", radius: 0, chipRadius: 0, ink: "#070b12",
@@ -535,8 +554,8 @@ export function cliSkin(key) {
   return CLI_SKINS[k] ?? CLI_SKINS.unknown;
 }
 
-// 流派外框厚度與內艙縮排。GPUI 的 absolute().inset(N) 從外邊框盒起算，
-// 所以粗骨派（solid/ornate）要用更大的 inset 才不會讓內艙蓋掉第 2px 邊框。
+// 流派外框厚度与内舱缩进。GPUI 的 absolute().inset(N) 从外边框盒起算，
+// 所以粗骨派（solid/ornate）要用更大的 inset 才不会让内舱盖掉第 2px 边框。
 export const CLI_FRAME = {
   ring: { border: 1, cabinInset: 2 },
   double: { border: 1, cabinInset: 2 },
@@ -550,7 +569,7 @@ export function cliFrame(style) {
   return CLI_FRAME[style] ?? CLI_FRAME.ring;
 }
 
-// 兩色線性混合（t=0 → a，t=1 → b），回傳 #rrggbb。給不吃 alpha 的實色零件用。
+// 两色线性混合（t=0 → a，t=1 → b），回传 #rrggbb。给不吃 alpha 的实色零件用。
 export function mixHex(a, b, t) {
   const parse = (c) => {
     const s = String(c).replace("#", "");

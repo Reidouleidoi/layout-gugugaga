@@ -8,7 +8,7 @@ import { resolveToastContext, withAlpha } from "./lib.js";
 
 const JOBS_FILE = `${appHome()}/mods/gugugaga-agents/jobs.json`;
 const MONO_FONT = "Cascadia Mono";
-// 與 gugugaga-agents / gugugaga-tabs 同一套狀態扣皮膚。
+// 与 gugugaga-agents / gugugaga-tabs 同一套状态扣皮肤。
 const STATUS_SKIN = {
   working: { bg: "#0e2238fa", border: "#8ccaffdd", text: "#d8eeff" },
   blocked: { bg: "#241708f8", border: "#ffb547ee", text: "#ffd080" },

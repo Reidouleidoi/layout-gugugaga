@@ -1,11 +1,11 @@
-// 咕咕嘎嘎 Agents 卡片：把 agents() 畫成職業肖像卡片，狀態、模型與子代理樹都畫在同一張卡上。
-// 讀 jobs.json 與 data/traveler/sessions 快取；沒有快取時會跑 `hc read <address> --lines 25` 抓終端尾端解析模型。
-// 不連網、不讀憑證、不寫任何檔案；沒有資料就不畫那一段。
+// 咕咕嘎嘎 Agents 卡片：把 agents() 画成职业肖像卡片，状态、模型与子代理树都画在同一张卡上。
+// 读 jobs.json 与 data/traveler/sessions 缓存；没有缓存时会跑 `hc read <address> --lines 25` 抓终端尾端解析模型。
+// 不连网、不读凭证、不写任何文件；没有数据就不画那一段。
 import { readdir } from "fs/promises";
 import { View, Background, PathBuilder, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { agents, appHome, hc, readTextFile, run, setAgentOrder, settings, spaces, terminals, theme, watchFolder } from "herdr";
-import { assignJobs, cachePath, cliFrame, cliSkin, contextLabel, effortSpec, jobIn, mixHex, modelFamily, modelLabel, parseCache, parseTerminalModel, portraitPath, remoteCachePath, resolveAppInfo, setGugugagaPools, spacePlaceArt, spritePath, tabNames } from "./lib.js";
+import { assignJobs, cachePath, cliFrame, cliSkin, contextLabel, effortSpec, jobIn, mixHex, MODEL_POOL_KEYS, modelArtForFamily, modelFamily, modelLabel, parseCache, parseTerminalModel, portraitPath, remoteCachePath, resolveAppInfo, setGugugagaPools, setModelPools, spacePlaceArt, spritePath, tabNames } from "./lib.js";
 
 const HOME = appHome();
 const SESSIONS_DIR = `${HOME}/data/traveler/sessions`;
@@ -16,53 +16,53 @@ const PIC = 48;
 // Sprites are 48x64 logical pixels (3:4); rendered 1:1 so pixel art stays crisp.
 const SPRITE_W = 48;
 const SPRITE_H = 64;
-// 展示卡：左列極簡階梯像素托架（48x64 企鵝 + ━━┓┗━━ 連入名片底邊）+ 240x96 像素銘牌（底邊齊平挖槽 Space）。
+// 展示卡：左列极简阶梯像素托架（48x64 企鹅 + ━━┓┗━━ 连入名片底边）+ 240x96 像素铭牌（底边齐平挖槽 Space）。
 const CARD_H = 109;
 const CARD_GAP = 8;
 const CARD_STEP = CARD_H + CARD_GAP;
-const LEFT_W = 56; // 立繪列寬
-const PLATE_X = LEFT_W + 8; // 銘牌左緣 = 64
+const LEFT_W = 56; // 立绘列宽
+const PLATE_X = LEFT_W + 8; // 铭牌左缘 = 64
 const PLATE_W = 240;
 const PLATE_H = 96;
-const PLATE_TOP = 11; // 騎框徽章 h22、中線騎在 y=11 的頂框上
-const PLATE_BOTTOM = PLATE_TOP + PLATE_H; // 107，名片底邊絕對筆直基線
-const ART_W = 112; // 立繪 @2x 224x180 -> 邏輯 112x90
+const PLATE_TOP = 11; // 骑框徽章 h22、中线骑在 y=11 的顶框上
+const PLATE_BOTTOM = PLATE_TOP + PLATE_H; // 107，名片底边绝对笔直基线
+const ART_W = 112; // 立绘 @2x 224x180 -> 逻辑 112x90
 const ART_H = 90;
-const SPRITE_TOP = 10; // 企鵝 y=10..74，腳底穩踩在 y=74 水平托盤線上
+const SPRITE_TOP = 10; // 企鹅 y=10..74，脚底稳踩在 y=74 水平托盘在线
 const TRAY_X = 4;
 const TRAY_W = 50; // x=4..54
 const TRAY_Y = 74;
 const DROP_X = 52; // x=52..54 直角下折至 y=107
 const TAB_ROW_TOP = 80;
-const TAB_ROW_H = 20; // y=80..100，居中於企鵝正下方 x=4..50
+const TAB_ROW_H = 20; // y=80..100，居中于企鹅正下方 x=4..50
 const NOTCH_LEFT_IN_PLATE = 10;
-const NOTCH_W = 142; // 完整態挖槽寬；窄態由 plateW 收斂
-const NOTCH_H = 19; // bottom 嚴格齊平 y=107，絕不下凸破框
-const NARROW_PX = 160; // 窄軌門檻：與 gugugaga-spaces / gugugaga-chrome 同一個數
-const FOLD_WIDE_PX = 320; // Party 收縮扣的兩檔寬度
+const NOTCH_W = 142; // 完整态挖槽宽；窄态由 plateW 收敛
+const NOTCH_H = 19; // bottom 严格齐平 y=107，绝不下凸破框
+const NARROW_PX = 160; // 窄轨门槛：与 gugugaga-spaces / gugugaga-chrome 同一个数
+const FOLD_WIDE_PX = 320; // Party 收缩扣的两档宽度
 const FOLD_NARROW_PX = 196;
 const MONO_FONT = "Cascadia Mono";
 const PLATE_INK = "#070b12";
 const withAlpha = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
 
-// ── 小隊梯（子代理）：巢狀關係只存在 terminals() 的 parent 上，agents() 沒有這個欄位。
-// 對齊 gugugaga-spaces 的像素 outliner：2px 樹幹、9x2 橫枝、5px 方塊節點。
+// ── 小队梯（子代理）：嵌套关系只存在 terminals() 的 parent 上，agents() 没有这个字段。
+// 对齐 gugugaga-spaces 的像素 outliner：2px 树干、9x2 横枝、5px 方块节点。
 const SQUAD_H = 17; // 子代理列高
-const SQUAD_GAP = 2; // 列與列之間留 2px，由樹幹補滿，接縫不會斷
-const TRUNK_X = 27; // 樹幹對齊企鵝與 #Tab 正下方中心
-const DEPTH_STEP = 12; // 每深一層右移
-const DEPTH_MAX = 3; // 320px 側欄可以容納三層縮排
+const SQUAD_GAP = 2; // 列与列之间留 2px，由树干补满，接缝不会断
+const TRUNK_X = 27; // 树干对齐企鹅与 #Tab 正下方中心
+const DEPTH_STEP = 12; // 每深一层右移
+const DEPTH_MAX = 3; // 320px 侧栏可以容纳三层缩进
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 
-// 子代理狀態：有自己 pane 的以 agents() 為準，沒有 pane 的只信 core 的 status。
-// error 算 blocked；子代理不宣告 done，它做完是回報給父母，父母的 done 才是消息。
+// 子代理状态：有自己 pane 的以 agents() 为准，没有 pane 的只信 core 的 status。
+// error 算 blocked；子代理不声明 done，它做完是回报给父母，父母的 done 才是消息。
 const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status ?? "idle";
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
 
-// 肖像：配到職業就畫肖像圖；沒配到退回程式圖示（單色用 svg、圖片用 image），都沒有就留空。
-// 以每個 agent 自己的 address 當作快取 key，彼此與各狀態互不影響。
+// 肖像：配到职业就画肖像图；没配到退回程序图标（单色用 svg、图片用 image），都没有就留空。
+// 以每个 agent 自己的 address 当作缓存 key，彼此与各状态互不影响。
 function portrait(a, assigned, t) {
   const job = jobIn(a.tab_name, assigned);
   const sprite = spritePath(job, a.status, a.address);
@@ -81,10 +81,10 @@ function portrait(a, assigned, t) {
     .child(p.tint ? svg(p.icon).size(24).text_color(t.foreground) : image(p.icon).w(24).h(24));
 }
 
-// ── 像素銘牌零件 ───────────────────────────────────────────────────────────
+// ── 像素铭牌零件 ───────────────────────────────────────────────────────────
 const STATUS = { working: "WORKING", blocked: "NEEDS YOU", done: "DONE", idle: "IDLE" };
 
-// 狀態扣的實底配色：用不透明的深色截斷背後的粗框，形成嵌槽像素卡扣。
+// 状态扣的实底配色：用不透明的深色截断背后的粗框，形成嵌槽像素卡扣。
 const STATUS_SKIN = {
   working: { bg: "#0e2238fa", border: "#8ccaffdd", text: "#d8eeff" },
   blocked: { bg: "#241708f8", border: "#ffb547ee", text: "#ffd080" },
@@ -92,7 +92,7 @@ const STATUS_SKIN = {
   idle: { bg: "#0d131cf0", border: "#5d687866", text: "#7c8a9e" },
 };
 
-// 滿版矩形路徑：paint_path 只吃 Path，漸層、網點與斜紋都靠它。
+// 满版矩形路径：paint_path 只吃 Path，渐变、网点与斜纹都靠它。
 const rectPath = () =>
   PathBuilder.fill()
     .move_to("0%", "0%")
@@ -104,7 +104,7 @@ const rectPath = () =>
 
 const hex8 = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
 
-// 4 角像素塊/階梯小點（每個元件各自 2x2px）
+// 4 角像素块/阶梯小点（每个组件各自 2x2px）
 function cornerPixels(color, inset = 1, size = 2) {
   return [
     div().absolute().left(inset).top(inset).size(size).bg(color),
@@ -114,7 +114,7 @@ function cornerPixels(color, inset = 1, size = 2) {
   ];
 }
 
-// CLI 外框：全流派像素化（rounded(0) + 階梯角點/L角 + 1px 內邊高光）。
+// CLI 外框：全流派像素化（rounded(0) + 阶梯角点/L角 + 1px 内边高光）。
 function frameLook(skin, si) {
   const style = skin.style;
   const { border: frameBorder, cabinInset } = cliFrame(style);
@@ -165,7 +165,7 @@ function frameLook(skin, si) {
         .border_dashed()
         .border_color(skin.dashed[si]),
     );
-    // 4 角 8 个 div 拼 2px L 角：12x2 + 2x10 + 角點像素釘
+    // 4 角 8 个 div 拼 2px L 角：12x2 + 2x10 + 角点像素钉
     const bar = (pos) => {
       let el = div().absolute().bg(c).w(pos.w).h(pos.h);
       if (pos.left !== undefined) el = el.left(pos.left);
@@ -195,7 +195,7 @@ function frameLook(skin, si) {
   return { frameBorder, cabinInset, borderColor, deco };
 }
 
-// 左脊柱（CLI 體系）：AGY 是三段棱鏡刻度，其餘是通高細脊；noSpine 流派留白。
+// 左脊柱（CLI 体系）：AGY 是三段棱镜刻度，其余是通高细脊；noSpine 流派留白。
 function spineNode(skin, si) {
   if (skin.noSpine || !skin.spine) return null;
   const sp = skin.spine;
@@ -212,7 +212,7 @@ function spineNode(skin, si) {
   return div().absolute().left(3).top(8).bottom(8).w(2).bg(sp.colors[si]);
 }
 
-// 立繪正后方的極淡模型背襯光（GLM 黑長直加濃到 22%）。
+// 立绘正后方的极淡模型背衬光（GLM 黑长直加浓到 22%）。
 function modelBacking(primary, strong) {
   return div()
     .absolute()
@@ -237,7 +237,7 @@ function modelBacking(primary, strong) {
     );
 }
 
-// 兩段式左向遮罩的第二段：x=96..180（前 16px 實色接 68px 柔和羽化），確保 160px 模型名尾部不被亮立繪吞字。
+// 两段式左向遮罩的第二段：x=96..180（前 16px 实色接 68px 柔和羽化），确保 160px 模型名尾部不被亮立绘吞字。
 function fadeLayer(plate, angle, left = 96) {
   return div()
     .absolute()
@@ -272,7 +272,7 @@ function fadeLayer(plate, angle, left = 96) {
     );
 }
 
-// 未知模型時的右側 112x90 缺省槽：極淡背光 + 低不透明度 Pixel Agent 標誌 + 像素角點，消除純黑死洞。
+// 未知模型时的右侧 112x90 默认槽：极淡背光 + 低不透明度 Pixel Agent 标志 + 像素角点，消除纯黑死洞。
 function unknownArtSlot() {
   return div()
     .absolute()
@@ -308,7 +308,7 @@ function unknownArtSlot() {
     );
 }
 
-// Agent 扣：精緻克制 h=22、16x16 像素 SVG + 舒適留白 + Cascadia Mono 加粗大寫 CLI 名。
+// Agent 扣：精致克制 h=22、16x16 像素 SVG + 舒适留白 + Cascadia Mono 加粗大写 CLI 名。
 function agentBadge(info, _t, focused, skin, iconOnly = false) {
   const color = info.color ?? skin.accent;
   const mark = info.tint
@@ -332,7 +332,7 @@ function agentBadge(info, _t, focused, skin, iconOnly = false) {
         .bg("#0b111cf5")
         .border(1)
         .border_color(hex8(color, focused ? "dd" : "88"))
-        // 窄到只剩 Logo 扣時，名字改掛 tooltip。
+        // 窄到只剩 Logo 扣时，名字改挂 tooltip。
         .when(iconOnly, (el) => el.tooltip(label))
         .child(
           div()
@@ -357,7 +357,7 @@ function agentBadge(info, _t, focused, skin, iconOnly = false) {
     );
 }
 
-// 狀態記號：卡片徽章與子代理列共用同一組像素字形。
+// 状态记号：卡片徽章与子代理列共用同一组像素字形。
 function statusMark(status, statusColor) {
   return status === "working"
     ? div().flex_none().text_size(9).text_color(statusColor).frames(["▘", "▝", "▗", "▖"], 140)
@@ -375,7 +375,7 @@ function statusMark(status, statusColor) {
       : div().flex_none().text_size(9).text_color(statusColor).child(status === "done" ? "✓" : "▪");
 }
 
-// 右上狀態扣：克制精煉 h=19 + rounded(0) + Cascadia Mono 9px。
+// 右上状态扣：克制精炼 h=19 + rounded(0) + Cascadia Mono 9px。
 function statusBadge(status, t, iconOnly = false) {
   const skin = STATUS_SKIN[status] ?? STATUS_SKIN.idle;
   const label = STATUS[status] ?? String(status).toUpperCase();
@@ -448,7 +448,7 @@ function statusBadge(status, t, iconOnly = false) {
     );
 }
 
-// 主角模型橫幅（w=160, h=22）：左 2px primary 實色豎條 + 通透柔和漸變 + 14x14 廠家 Logo + 亮白模型名。
+// 主角模型横幅（w=160, h=22）：左 2px primary 实色竖条 + 通透柔和渐变 + 14x14 厂家 Logo + 亮白模型名。
 function modelBanner(family, model, rawModel, fallbackLabel, t, width = 160) {
   const primary = family.primary;
   const label = model || fallbackLabel;
@@ -529,7 +529,7 @@ function modelBanner(family, model, rawModel, fallbackLabel, t, width = 160) {
     );
 }
 
-// 副信息 Effort + 可選上下文副標（h=14, max_w=150）：3x4 像素點 + 低飽和等寬字 + 自訂會話名。
+// 副信息 Effort + 可选上下文副标（h=14, max_w=150）：3x4 像素点 + 低饱和等宽字 + 自订会话名。
 function effortBar(effort, primary, contextTag, maxW = 150) {
   const spec = effortSpec(effort);
   if (!spec && !contextTag) return null;
@@ -581,7 +581,7 @@ function effortBar(effort, primary, contextTag, maxW = 150) {
     );
 }
 
-// 底邊齊平方形挖槽：bottom 嚴格對齊 PLATE_BOTTOM（絕不下凸破框），上/左/右 1px 像素邊，底邊敞口遮平底框線。
+// 底边齐平方形挖槽：bottom 严格对齐 PLATE_BOTTOM（绝不下凸破框），上/左/右 1px 像素边，底边敞口遮平底框线。
 function spaceNotch(a, places, spaceName, borderColor, notchW = NOTCH_W) {
   return div()
     .relative()
@@ -613,9 +613,9 @@ function spaceNotch(a, places, spaceName, borderColor, notchW = NOTCH_W) {
     );
 }
 
-// Working 底槽 + 深底襯墊 + 亮冰藍掃描像素塊（銜接於 Space 挖槽右側 x=152..right-1，貼齊底邊 1px 外框）。
+// Working 底槽 + 深底衬垫 + 亮冰蓝扫描像素块（衔接于 Space 挖槽右侧 x=152..right-1，对齐底边 1px 外框）。
 function workingTrack(startLeft, trackW = 88) {
-  // 掃描塊寬 28，動畫區間隨可用 trackW 收斂，任何寬度都不會衝出底槽。
+  // 扫描块宽 28，动画区间随可用 trackW 收敛，任何宽度都不会冲出底槽。
   const travel = Math.max(0, trackW - 28);
   return div()
     .absolute()
@@ -641,7 +641,7 @@ function workingTrack(startLeft, trackW = 88) {
     );
 }
 
-// Blocked 底槽的琥珀斜紋（銜接於 Space 挖槽右側 x=152..right-1）。
+// Blocked 底槽的琥珀斜纹（衔接于 Space 挖槽右侧 x=152..right-1）。
 function blockedSlash(startLeft) {
   return div()
     .absolute()
@@ -674,11 +674,11 @@ export default class Traveler extends View {
     this.watching = false;
     this.panelH = 0;
     this.panelW = 0;
-    // on_size_change 回報的是縮放後像素（zoom 1.2 時 320 → 379），換算回 layout 單位才對得上 px。
+    // on_size_change 回报的是缩放后像素（zoom 1.2 时 320 → 379），换算回 layout 单位才对得上 px。
     this.blockW = 0;
     this.hovered = null;
-    this.folded = new Set(); // 折起來的子代理：address
-    this.listed = new Map(); // address -> agents() 的狀態（有 pane 的子代理用這個）
+    this.folded = new Set(); // 折起来的子代理：address
+    this.listed = new Map(); // address -> agents() 的状态（有 pane 的子代理用这个）
     this.focusedAgent = null;
     // Drag-to-reorder: pressed/over are top-level indexes in the list currently drawn.
     this.pressed = null;
@@ -692,18 +692,18 @@ export default class Traveler extends View {
     this.loadRemote(cx);
     this.loadScreenModels(cx, true);
     this.watch(cx);
-    // 資料是數字，最多 30 秒看一次就夠；也讓「舊」標記自己出現，順便重試監看。
+    // 数据是数字，最多 30 秒看一次就够；也让「旧」标记自己出现，顺便重试监听。
     cx.timer.every(30000, (cx) => {
       this.loadPools(cx);
       this.load(cx);
       this.loadScreenModels(cx, true);
       this.watch(cx);
-      // 遠端每 60 秒讀一次，跟 statusLine 的更新間隔一樣；遠端資料夾不能監看。
+      // 远程每 60 秒读一次，跟 statusLine 的更新间隔一样；远程文件夹不能监听。
       if (++this.tick % 2 === 0) this.loadRemote(cx);
     });
   }
 
-  // 動態掃描 art/gugugaga 與 sprites/gugugaga/{r,w,b}，手動增刪檔案時自動同步清單。
+  // 动态扫描 art/gugugaga、sprites/gugugaga/{r,w,b} 与 art/models/<family>，手动增删文件时自动同步清单。
   loadPools(cx) {
     const scan = async (relDir, exts) => {
       try {
@@ -716,22 +716,29 @@ export default class Traveler extends View {
         return null;
       }
     };
+    const imgExts = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
     cx.spawn(async (cx) => {
-      const [portrait, rest, working, blocked] = await Promise.all([
-        scan("mods/gugugaga-agents/art/gugugaga", [".png", ".jpg", ".jpeg", ".webp", ".gif"]),
+      const [portrait, rest, working, blocked, ...modelScans] = await Promise.all([
+        scan("mods/gugugaga-agents/art/gugugaga", imgExts),
         scan("mods/gugugaga-agents/sprites/gugugaga/r", [".gif", ".png", ".webp"]),
         scan("mods/gugugaga-agents/sprites/gugugaga/w", [".gif", ".png", ".webp"]),
         scan("mods/gugugaga-agents/sprites/gugugaga/b", [".gif", ".png", ".webp"]),
+        ...MODEL_POOL_KEYS.map((k) => scan(`mods/gugugaga-agents/art/models/${k}`, imgExts)),
       ]);
       const next = {};
       if (portrait) next.portrait = portrait;
       if (rest) next.rest = rest;
       if (working) next.working = working;
       if (blocked) next.blocked = blocked;
-      const sig = JSON.stringify(next);
-      if (Object.keys(next).length > 0 && sig !== this.poolSig) {
+      const nextModels = {};
+      MODEL_POOL_KEYS.forEach((k, i) => {
+        if (modelScans[i]) nextModels[k] = modelScans[i];
+      });
+      const sig = JSON.stringify({ gugugaga: next, models: nextModels });
+      if ((Object.keys(next).length > 0 || Object.keys(nextModels).length > 0) && sig !== this.poolSig) {
         this.poolSig = sig;
         setGugugagaPools(next);
+        setModelPools(nextModels);
         cx.notify();
       }
     });
@@ -743,6 +750,7 @@ export default class Traveler extends View {
       `${HOME}/mods/gugugaga-agents/sprites/gugugaga/r`,
       `${HOME}/mods/gugugaga-agents/sprites/gugugaga/w`,
       `${HOME}/mods/gugugaga-agents/sprites/gugugaga/b`,
+      ...MODEL_POOL_KEYS.map((k) => `${HOME}/mods/gugugaga-agents/art/models/${k}`),
     ];
     for (const dir of dirs) {
       cx.spawn(async (cx) => {
@@ -762,7 +770,7 @@ export default class Traveler extends View {
       });
     }
   }
-  // Fallback：當没有 session 快取檔時，從 terminal 畫面尾端解析当前模型與 effort。
+  // Fallback：当没有 session 缓存档时，从 terminal 画面尾端解析当前模型与 effort。
   loadScreenModels(cx, force = false) {
     if (this.readingScreen) return;
     const now = Date.now();
@@ -812,8 +820,8 @@ export default class Traveler extends View {
     });
   }
 
-  // 監看快取資料夾：有變更就重讀。資料夾不存在或不被允許時結束迴圈，
-  // 交給上面的計時器每 30 秒重試，不會變成緊迴圈。
+  // 监听缓存文件夹：有变更就重读。文件夹不存在或不被允许时结束循环，
+  // 交给上面的计时器每 30 秒重试，不会变成紧循环。
   watch(cx) {
     if (this.watching) return;
     this.watching = true;
@@ -827,7 +835,7 @@ export default class Traveler extends View {
         } catch {
           break;
         }
-        // 立刻回來又沒有任何變更，代表監看沒真的生效，也別讓它空轉。
+        // 立刻回来又没有任何变更，代表监听没真的生效，也别让它空转。
         quick = Date.now() - started < 500 && (changed ?? []).length === 0 ? quick + 1 : 0;
         if (quick >= 3) break;
         this.load(cx);
@@ -837,7 +845,7 @@ export default class Traveler extends View {
   }
 
   loadPlaces(cx) {
-    // 與 gugugaga-spaces 共用 places.json；檔案不存在就用名稱哈希配建築。
+    // 与 gugugaga-spaces 共用 places.json；文件不存在就用名称哈希配建筑。
     cx.spawn(async (cx) => {
       const text = await readTextFile(PLACES_FILE).catch(() => null);
       let places = {};
@@ -852,7 +860,7 @@ export default class Traveler extends View {
     });
   }
 
-  // 儲存的順序：address 陣列。認不得的（新 agent）排在已知的最後，彼此照原順序。
+  // 保存的顺序：address 数组。认不得的（新 agent）排在已知的最后，彼此照原顺序。
   savedOrder() {
     try {
       const raw = JSON.parse(localStorage.getItem(ORDER_KEY) ?? "[]");
@@ -901,7 +909,7 @@ export default class Traveler extends View {
     });
   }
 
-  // 每個本機 agent 讀自己那份快取；遠端的由 loadRemote 讀。
+  // 每个本机 agent 读自己那份缓存；远程的由 loadRemote 读。
   load(cx) {
     const wanted = [];
     for (const a of agents()) {
@@ -921,7 +929,7 @@ export default class Traveler extends View {
     });
   }
 
-  // 遠端 agent 讀它那台的快取檔（透過 Herdr 原有的連線，不執行指令）；連不上就是 null，畫面顯示「—」。
+  // 远程 agent 读它那台的缓存档（通过 Herdr 原有的连接，不执行指令）；连不上就是 null，画面显示「—」。
   loadRemote(cx) {
     const wanted = [];
     for (const a of agents()) {
@@ -942,7 +950,7 @@ export default class Traveler extends View {
     });
   }
 
-  // parent address -> 依模型順序的 live 子終端（terminals() 的 parent 欄位）。
+  // parent address -> 依模型顺序的 live 子终端（terminals() 的 parent 字段）。
   childIndex(all) {
     const kids = new Map();
     for (const k of all) {
@@ -954,8 +962,8 @@ export default class Traveler extends View {
     return kids;
   }
 
-  // 深度優先列出 addr 的子代理。lead[d] 表示第 d 層祖先還有下一個兄弟，
-  // 所以那一層要補一條連到下一個的垂直樹幹；last 是目前這列的最後一個。
+  // 深度优先列出 addr 的子代理。lead[d] 表示第 d 层祖先还有下一个兄弟，
+  // 所以那一层要补一条连到下一个的垂直树干；last 是目前这列的最后一个。
   subtree(kids, addr, depth = 0, lead = []) {
     const list = kids.get(addr) ?? [];
     if (depth > DEPTH_MAX + 2) return [];
@@ -968,8 +976,8 @@ export default class Traveler extends View {
     });
   }
 
-  // 把 top-level 卡片、子代理列與接縫樹幹排成 y 座標。
-  // 所有卡片同一個展示高度，立繪一律靠左，不再交錯；子代理列接在父母卡片下方。
+  // 把 top-level 卡片、子代理列与接缝树干排成 y 座标。
+  // 所有卡片同一个展示高度，立绘一律靠左，不再交错；子代理列接在父母卡片下方。
   stackLayout(list, kids) {
     const cards = [];
     const subs = [];
@@ -980,7 +988,7 @@ export default class Traveler extends View {
       const children = this.subtree(kids, a.address);
       const open = children.length > 0 && !this.folded.has(a.address);
       const start = y;
-      // 最緊急的子代理決定徽章顏色（卡片本身只看自己的狀態）。
+      // 最紧急的子代理决定徽章颜色（卡片本身只看自己的状态）。
       const urgent = children.reduce((best, s) => {
         const st = kidStatus(s.k, this.listed);
         return (RANK[st] ?? 0) > (RANK[best] ?? 0) ? st : best;
@@ -989,7 +997,7 @@ export default class Traveler extends View {
       y = start + CARD_STEP;
       bottom = start + CARD_H;
       if (!open) return;
-      // 從下方無框 #Tab 標籤正下方接第一列：由 stub 補齊到 first，列與列之間由各列的樹幹補。
+      // 从下方无框 #Tab 标签正下方接第一列：由 stub 补齐到 first，列与列之间由各列的树干补。
       const first = start + CARD_H + SQUAD_GAP;
       stubs.push({ x: TRUNK_X, y: start + TAB_ROW_TOP + TAB_ROW_H + 2, h: CARD_H - (TAB_ROW_TOP + TAB_ROW_H + 2) + SQUAD_GAP });
       children.forEach((s, n) => subs.push({ ...s, trunkX: TRUNK_X, y: first + n * (SQUAD_H + SQUAD_GAP) }));
@@ -999,7 +1007,7 @@ export default class Traveler extends View {
     return { cards, subs, stubs, totalH: bottom > 0 ? bottom + 4 : 0 };
   }
 
-  // 卡片內的小隊徽章：h=19 + rounded(0) + Cascadia Mono + 硬像素邊框。
+  // 卡片内的小队徽章：h=19 + rounded(0) + Cascadia Mono + 硬像素边框。
   squadChip(a, card, t) {
     const color = t[card.urgent] ?? t.dim;
     const open = card.open;
@@ -1021,7 +1029,7 @@ export default class Traveler extends View {
           .border(1)
           .border_color(hex8(color, "88"))
           .cursor_pointer()
-          // 不讓折疊點擊被外層卡片的拖曳/聚焦吃掉。
+          // 不让折叠点击被外层卡片的拖拽/聚焦吃掉。
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
           .on_click((_e, cx) => {
             cx.stop_propagation();
@@ -1034,7 +1042,7 @@ export default class Traveler extends View {
       );
   }
 
-  // 子代理列：像素 outliner 的樹幹／橫枝／方塊節點，右側接一行窄資訊（不用立繪，沒有新 GIF）。
+  // 子代理列：像素 outliner 的树干／横枝／方块节点，右侧接一行窄信息（不用立绘，没有新 GIF）。
   subRow(s, t) {
     const k = s.k;
     const st = kidStatus(k, this.listed);
@@ -1051,12 +1059,12 @@ export default class Traveler extends View {
         ? svg(info.logo).size(11).flex_none().text_color(color)
         : image(info.logo).w(11).h(11).flex_none();
     const gutter = [];
-    // 祖先層：貫穿這一列並多走 SQUAD_GAP，接上下一個兄弟。
+    // 祖先层：贯穿这一列并多走 SQUAD_GAP，接上下一个兄弟。
     for (let d = 0; d < s.lead.length; d++) {
       if (!s.lead[d]) continue;
       gutter.push(div().absolute().left(x(d)).top(0).w(2).h(SQUAD_H + SQUAD_GAP).bg(trunk));
     }
-    // 自己這層：非最後一個走滿，最後一個只走到橫枝；橫枝與節點對齊 y=8。
+    // 自己这层：非最后一个走满，最后一个只走到横枝；横枝与节点对齐 y=8。
     gutter.push(div().absolute().left(gx).top(0).w(2).h(s.last ? 10 : SQUAD_H + SQUAD_GAP).bg(trunk));
     gutter.push(div().absolute().left(gx).top(8).w(9).h(2).bg(trunk));
     gutter.push(div().absolute().left(gx + 9).top(6).size(5).bg(color).border(1).border_color(t.accent_foreground ?? t.canvas));
@@ -1097,7 +1105,7 @@ export default class Traveler extends View {
     const cache = this.cache[a.address] ?? this.remote[a.address] ?? null;
     const screen = this.screenModels[a.address] ?? null;
     const isHot = this.hovered === a.address;
-    // 多個 agent 可能同時回報 focused：只認這一個，否則一整排卡片都會發亮。
+    // 多个 agent 可能同时回报 focused：只认这一个，否则一整排卡片都会发亮。
     const focused = a.address === this.focusedAgent;
     const info = resolveAppInfo(a);
     const skin = cliSkin(info.cli);
@@ -1109,13 +1117,13 @@ export default class Traveler extends View {
     const tabRaw = String(a.tab_name || "").trim();
     const tabLabel = tabRaw || spaceName;
     const hashTab = tabLabel.startsWith("#") ? tabLabel : `#${tabLabel}`;
-    // 四態：blocked > focused > hovered > default；si 只給 CLI 色表取樣。
+    // 四态：blocked > focused > hovered > default；si 只给 CLI 色表采样。
     const state =
       a.status === "blocked" ? "blocked" : focused ? "focused" : isHot ? "hovered" : "default";
     const si = state === "focused" ? 2 : state === "hovered" ? 1 : 0;
     const look = frameLook(skin, si);
-    // ── 四檔響應式：側欄寬度決定銘牌寬度與收納層級 ─────────────────────
-    // panelW 由 on_size_change 量得（已換算回 layout 單位）；首帧还没有量測值時退回 240 的完整態。
+    // ── 四档响应式：侧栏宽度决定铭牌宽度与收纳层级 ─────────────────────
+    // panelW 由 on_size_change 量得（已换算回 layout 单位）；首帧还没有量测值时退回 240 的完整态。
     const panelW = this.blockW ?? 0;
     const measured = panelW > 0;
     const plateW = measured
@@ -1123,7 +1131,7 @@ export default class Traveler extends View {
       : PLATE_W;
     const tier = !measured || panelW >= 272 ? "full" : panelW >= 228 ? "noArt" : "minimal";
     const showArt = tier === "full";
-    // 立繪左緣：full 態的羽化要貼著立繪左緣走（plateW 240 時正好 96）。
+    // 立绘左缘：full 态的羽化要贴着立绘左缘走（plateW 240 时正好 96）。
     const fadeLeft = Math.max(40, plateW - 144);
     const notchW = Math.max(56, Math.min(NOTCH_W, plateW - 18));
     const trackStart = NOTCH_LEFT_IN_PLATE + notchW;
@@ -1131,18 +1139,19 @@ export default class Traveler extends View {
     const trackFits = trackW >= 24;
     const bannerW = Math.max(60, Math.min(160, plateW - 16));
     const effortMaxW = Math.max(60, plateW - 18);
-    // 防碰撞降級：銘牌窄到放不下文字時，把扣切成純圖示（名字改掛 tooltip）。
+    // 防碰撞降级：铭牌窄到放不下文本时，把扣切成纯图标（名字改挂 tooltip）。
     const statusIconOnly = plateW < 192;
     const agentIconOnly = plateW < 156 || (card.count > 0 && plateW < 176);
-    const art = showArt ? family.art : null;
-    // noArt 態只留右側極淡背襯光，立繪 / 缺省槽 / 羽化一律乾淨隱藏。
-    const artBacking = Boolean(family.art) && tier !== "minimal";
+    const resolvedArt = modelArtForFamily(family.key, a.address);
+    const art = showArt ? resolvedArt : null;
+    // noArt 态只留右侧极淡背衬光，立绘 / 默认槽 / 羽化一律干净隐藏。
+    const artBacking = Boolean(resolvedArt) && tier !== "minimal";
     const isDimIdle = a.status === "idle" && !focused && !isHot;
     const artOpacity =
       state === "blocked" ? 0.92 : state === "focused" ? 0.98 : state === "hovered" ? 0.94 : isDimIdle ? 0.48 : 0.84;
     const mist =
       state === "blocked" ? "#ffb54710" : state === "focused" ? "#8ccaff0e" : state === "hovered" ? "#ffffff08" : null;
-    // 底部階梯像素托架（━━┓┗━━）與無框 #Tab 配色
+    // 底部阶梯像素托架（━━┓┗━━）与无框 #Tab 配色
     const railColor =
       state === "blocked"
         ? "#ffb547"
@@ -1193,7 +1202,7 @@ export default class Traveler extends View {
         else if (this.hovered === a.address) this.hovered = null;
         cx.notify();
       })
-      // 拖曳重排：按下記住來源，移到哪張卡就把 over 指到哪裡，放開才決定是拖曳還是點擊。
+      // 拖拽重排：按下记住来源，移到哪张卡就把 over 指到哪里，放开才决定是拖拽还是点击。
       .on_mouse_down("left", () => {
         this.pressed = card.i;
         this.over = card.i;
@@ -1209,12 +1218,12 @@ export default class Traveler extends View {
         const to = this.over;
         this.pressed = null;
         this.over = null;
-        // from === null：這一下不是從卡片上按下的（例如折疊徽章自己吃掉了按下事件），不要誤聚焦。
+        // from === null：这一下不是从卡片上按下的（例如折叠徽章自己吃掉了按下事件），不要误聚焦。
         if (from !== null && to !== null && from !== to) this.moveCard(from, to, cx);
         else if (from !== null) run("agent.focus", { terminal: a.address });
         cx.notify();
       })
-      // 右側 240x96 CLI 特色外框（外圈 → 裝飾 → 內艙，乾淨極夜底板，零網點雜訊與黑泥底影）。
+      // 右侧 240x96 CLI 特色外框（外圈 → 装饰 → 内舱，干净极夜底板，零网点噪声与黑泥底影）。
       .child(
         div()
           .absolute()
@@ -1229,16 +1238,16 @@ export default class Traveler extends View {
           .overflow_hidden()
           .children(look.deco)
           .child(
-            // 內艙：inset 依流派查表，確保立繪 112x90 槽位精準對齊。
+            // 内舱：inset 依流派查表，确保立绘 112x90 槽位精准对齐。
             div()
               .absolute()
               .inset(look.cabinInset)
               .rounded(0)
               .bg(skin.plate)
               .overflow_hidden()
-              // 立繪微背襯光（Model 體系）
+              // 立绘微背衬光（Model 体系）
               .when(artBacking, (el) => el.child(modelBacking(family.primary, family.moon)))
-              // 右貼半身立繪（圖檔頂部已留安全邊距，top(0) 完整保留胸口領結，非聚焦 IDLE 疊統一深冰夜壓暗幕）
+              // 右贴半身立绘（图档顶部已留安全边距，top(0) 完整保留胸口领结，非聚焦 IDLE 叠统一深冰夜压暗幕）
               .when(Boolean(art), (el) =>
                 el.child(
                   div()
@@ -1276,11 +1285,11 @@ export default class Traveler extends View {
                 ),
               )
               .when(showArt && !art, (el) => el.child(unknownArtSlot()))
-              // 左向乾淨羽化過渡：銷點跟著立繪左緣，換寬度也不錯位
+              // 左向干净羽化过渡：销点跟着立绘左缘，换宽度也不错位
               .when(showArt && Boolean(art), (el) => el.child(fadeLayer(skin.plate, 90, fadeLeft)))
-              // 狀態薄霧在羽化之上、文字之下
+              // 状态薄雾在羽化之上、文本之下
               .when(Boolean(mist), (el) => el.child(div().absolute().inset_0().bg(mist)))
-              // 內艙細線與克制像素角飾
+              // 内舱细线与克制像素角饰
               .when(skin.style === "double" || skin.style === "ornate", (el) =>
                 el.child(
                   div()
@@ -1314,13 +1323,13 @@ export default class Traveler extends View {
                   }),
                 ),
               )
-              // 側脊 / 品牌實條 / 4 角像素釘
+              // 侧脊 / 品牌实条 / 4 角像素钉
               .when(Boolean(spine), (el) => el.child(spine))
               .when(Boolean(skin.leftBar), (el) =>
                 el.child(div().absolute().left(0).top(0).bottom(0).w(4).bg(skin.leftBar[si])),
               )
               .when(Boolean(skin.nails), (el) => el.children(cornerPixels(skin.outer[si], 3, 2)))
-              // 主從分明內艙排版：主角模型橫幅（left 10, top 18, w 160）+ 副信息 Effort（left 10, top 44, h 14）。
+              // 主从分明内舱排版：主角模型横幅（left 10, top 18, w 160）+ 副信息 Effort（left 10, top 44, h 14）。
               .child(
                 div()
                   .absolute()
@@ -1331,7 +1340,7 @@ export default class Traveler extends View {
               .when(Boolean(effortRow), (el) =>
                 el.child(div().absolute().left(10).top(44).child(effortRow)),
               )
-              // CLI 內角小徽記：Claude ✻ / Qwen ✧ / Kimi ☾ / Gemini 雙星。
+              // CLI 内角小徽记：Claude ✻ / Qwen ✧ / Kimi ☾ / Gemini 双星。
               .when(Boolean(skin.bottomRight), (el) =>
                 el.child(
                   div()
@@ -1361,18 +1370,18 @@ export default class Traveler extends View {
                 ),
               ),
           )
-          // 四態底槽動效（貼齊外框底邊 y=106 內側 bottom(1)，精確銜接於 Space 挖槽右側 x=152..right-1）
+          // 四态底槽动效（对齐外框底边 y=106 内侧 bottom(1)，精确衔接于 Space 挖槽右侧 x=152..right-1）
           .when(a.status === "working" && trackFits, (el) => el.child(workingTrack(trackStart, trackW)))
           .when(a.status === "blocked" && trackFits, (el) => el.child(blockedSlash(trackStart)))
           .when(a.status === "done" && trackFits, (el) =>
             el.child(div().absolute().left(trackStart).right(1).bottom(1).h(2).bg("#7fd8a866")),
           )
-          // 聚焦/Blocked 時點亮與底部階梯托架+挖槽一致的外輪廓框
+          // 聚焦/Blocked 时点亮与底部阶梯托架+挖槽一致的外轮廓框
           .when(Boolean(unifiedOutline), (el) =>
             el.child(div().absolute().inset_0().rounded(0).border(1).border_color(unifiedOutline)),
           ),
       )
-      // 名片底邊齊平方形挖槽：嚴格底對齊 y = PLATE_BOTTOM，絕不下凸破框，底邊敞口遮平底線。
+      // 名片底边齐平方形挖槽：严格底对齐 y = PLATE_BOTTOM，绝不下凸破框，底边敞口遮平底线。
       .child(
         div()
           .absolute()
@@ -1380,7 +1389,7 @@ export default class Traveler extends View {
           .top(PLATE_BOTTOM - NOTCH_H)
           .child(spaceNotch(a, this.places, spaceName, notchBorder, notchW)),
       )
-      // 底部階梯像素托架（━━┓┗━━）：腳底托盤 (y=74, x=4..54) -> 右折下探 (x=52, y=74..107) -> 底邊直連 (y=105..107, x=52..65)。
+      // 底部阶梯像素托架（━━┓┗━━）：脚底托盘 (y=74, x=4..54) -> 右折下探 (x=52, y=74..107) -> 底边直连 (y=105..107, x=52..65)。
       .child(
         div()
           .absolute()
@@ -1410,7 +1419,7 @@ export default class Traveler extends View {
           .bg(lStep.line)
           .child(div().absolute().left(2).right(0).top(0).h(1).bg(lStep.hi)),
       )
-      // 左列企鵝立繪（48x64 穩踩在 y=74 水平托盤線上）
+      // 左列企鹅立绘（48x64 稳踩在 y=74 水平托盘在线）
       .child(
         div()
           .absolute()
@@ -1420,7 +1429,7 @@ export default class Traveler extends View {
           .h(SPRITE_H)
           .child(portrait(a, this.assigned, t)),
       )
-      // 托盤下方無框 # Tab 標籤（y=80..100，x=4..50 窩在階梯折線左側，與右側 Space 挖槽呼應）
+      // 托盘下方无框 # Tab 标签（y=80..100，x=4..50 窝在阶梯折线左侧，与右侧 Space 挖槽呼应）
       .child(
         h_flex()
           .absolute()
@@ -1454,7 +1463,7 @@ export default class Traveler extends View {
               .child(hashTab),
           ),
       )
-      // 騎框徽章層（在外框之後，才不會被 overflow_hidden 裁掉）。
+      // 骑框徽章层（在外框之后，才不会被 overflow_hidden 裁掉）。
       .child(
         div()
           .absolute()
@@ -1475,7 +1484,7 @@ export default class Traveler extends View {
               .child(statusBadge(a.status, t, statusIconOnly)),
           ),
       )
-      // 拖曳插入線：往下拖畫在目標下緣，往上拖畫在目標上緣。
+      // 拖拽插入线：往下拖画在目标下缘，往上拖画在目标上缘。
       .when(dropLine, (el) =>
         el.child(
           div()
@@ -1519,7 +1528,7 @@ export default class Traveler extends View {
       );
   }
 
-  // Party 標題列的快捷收縮扣：320 <-> 196 兩檔，直接切到「極簡銘牌態」。
+  // Party 标题列的快捷收缩扣：320 <-> 196 两档，直接切到「极简铭牌态」。
   foldButton(t) {
     const blockW = this.blockW ?? 0;
     const wide = blockW <= 0 || blockW >= 258;
@@ -1555,7 +1564,7 @@ export default class Traveler extends View {
     const t = theme();
     const base = agents();
     this.assigned = assignJobs(tabNames(spaces(), base), this.jobs);
-    // 剛出現的 agent 先補讀一次快取，不用等下一次計時器。
+    // 刚出现的 agent 先补读一次缓存，不用等下一次计时器。
     const fresh = base.filter((a) => !this.seen.has(a.address));
     if (fresh.some((a) => cachePath(HOME, a.address) !== null)) this.load(cx);
     if (fresh.some((a) => remoteCachePath(a.address) !== null)) this.loadRemote(cx);
@@ -1564,16 +1573,16 @@ export default class Traveler extends View {
     }
 
     const compactRail = this.blockW > 0 && this.blockW < NARROW_PX;
-    // 巢狀關係只在 terminals() 的 parent 上。nested 涵蓋所有 live 子代理，不看收合狀態：
-    // 折起一個父母時，子代理也不能彈出來變成另一張 top-level 卡片。
+    // 嵌套关系只在 terminals() 的 parent 上。nested 涵盖所有 live 子代理，不看折叠状态：
+    // 折起一个父母时，子代理也不能弹出来变成另一张 top-level 卡片。
     const kids = this.childIndex(compactRail ? [] : terminals());
     const nested = new Set();
     for (const a of base) for (const s of this.subtree(kids, a.address)) nested.add(s.k.address);
-    // 使用者拖出來的順序優先；沒記錄過的（新 agent）排在已知的後面。
+    // 用户拖出来的顺序优先；没记录过的（新 agent）排在已知的后面。
     const list = this.applyOrder(base.filter((a) => a.pinned || !nested.has(a.address)));
     this.listed = new Map(base.map((a) => [a.address, a.status]));
     this.focusedAgent = base.find((a) => a.focused)?.address ?? null;
-    // 折疊狀態只清掉真的消失的父母；窄側邊欄沒有折疊 UI，不要因此清光。
+    // 折叠状态只清掉真的消失的父母；窄侧边栏没有折叠 UI，不要因此清光。
     if (!compactRail) for (const key of this.folded) if (!kids.has(key)) this.folded.delete(key);
     this.shownAddrs = list.map((a) => a.address);
     setAgentOrder(this.shownAddrs);
@@ -1594,7 +1603,7 @@ export default class Traveler extends View {
         ) {
           this.panelH = size.height;
           this.panelW = size.width;
-          // 量到的是縮放後像素：除以 zoom 才是 layout px（zoom 1.2 時 320 → 379）。
+          // 量到的是缩放后像素：除以 zoom 才是 layout px（zoom 1.2 时 320 → 379）。
           const z = settings()?.zoom;
           const zoom = typeof z === "number" && z > 0 ? z : 1;
           this.blockW = size.width / zoom;
@@ -1648,7 +1657,7 @@ export default class Traveler extends View {
               .pb(8)
               .pt(2)
               .overflow_y_scrollbar()
-              // 拖到卡片外才放開：清掉殘留的拖曳狀態，卡片不會一直半透明。
+              // 拖到卡片外才放开：清掉残留的拖拽状态，卡片不会一直半透明。
               .on_mouse_up("left", (_e, cx) => {
                 if (this.pressed !== null || this.over !== null) {
                   this.pressed = null;

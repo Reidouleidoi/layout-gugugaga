@@ -1,6 +1,6 @@
-// 分屏終端頂欄的純資料層：不碰 herdr / gpui-kit，可被 node 直接載入測試。
-// CLI 品牌色表與 gugugaga-agents/lib.js 的 resolveAppInfo 同一套（mod 之間不跨目錄 import，
-// 所以這裡保留一份精簡拷貝），只用來決定頂欄頂條與徽標框的顏色。
+// 分屏终端顶栏的纯数据层：不碰 herdr / gpui-kit，可被 node 直接加载测试。
+// CLI 品牌色表与 gugugaga-agents/lib.js 的 resolveAppInfo 同一套（mod 之间不跨目录 import，
+// 所以这里保留一份精简副本），只用来决定顶栏顶条与徽标框的颜色。
 
 const APPS = new Map([
   ["antigravity", { text: "Antigravity", short: "AGY", logo: "mods/gugugaga-agents/art/logo-antigravity.svg", color: "#38bdf8" }],
@@ -27,8 +27,8 @@ function fromKey(key) {
   return found ? { ...found, key: key.trim().toLowerCase() } : null;
 }
 
-// p: PaneInfo（herdr 的 panes() 一條）。認得的 CLI 才有 color / logo；
-// 其餘（cmd / powershell / 一般程式）回 { color: null }，由 main.js 決定回落。
+// p: PaneInfo（herdr 的 panes() 一条）。认得的 CLI 才有 color / logo；
+// 其余（cmd / powershell / 一般程序）回 { color: null }，由 main.js 决定回落。
 export function resolvePaneApp(p) {
   const byApp = fromKey(p?.app);
   if (byApp) return byApp;
@@ -42,7 +42,7 @@ export function resolvePaneApp(p) {
   return { key: null, text: name || clean(p?.app, 24) || "shell", short: name || "shell", logo: null, color: null };
 }
 
-// 路徑末級目錄名：Windows 與 POSIX 反斜線都吃，根目錄留 drive/"/"。
+// 路径末级目录名：Windows 与 POSIX 反斜线都吃，根目录留 drive/"/"。
 export function lastSegment(cwd) {
   if (typeof cwd !== "string" || !cwd.trim()) return "";
   const trimmed = cwd.replace(/[\\/]+$/, "");
@@ -52,7 +52,7 @@ export function lastSegment(cwd) {
   return last;
 }
 
-// 終端地址在頂欄要短：機器名保留，其餘原樣（t125 / vps/t3）。
+// 终端地址在顶栏要短：机器名保留，其余原样（t125 / vps/t3）。
 export function shortAddress(terminal) {
   if (typeof terminal !== "string") return "";
   return terminal.trim().slice(0, 24);

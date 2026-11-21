@@ -11,7 +11,7 @@ const MONO_FONT = "Cascadia Mono";
 
 const GUGUGAGA_PLACES = ["igloo", "lighthouse", "fishshop", "iceberg"];
 const PLACES_FILE = `${appHome()}/mods/gugugaga-spaces/places.json`;
-// 有設定就照設定；沒設定的依名稱固定配一種，重新排序也不會換。
+// 有设置就照设置；没设置的依名称固定配一种，重新排序也不会换。
 const placeFor = (name, places) => {
   const place = GUGUGAGA_PLACES.includes(places[name])
     ? places[name]
@@ -47,7 +47,7 @@ function keysOf(s, ps) {
 const withAlpha = (c, a) => (typeof c === "string" && c.startsWith("#") ? `${c.slice(0, 7)}${a}` : c);
 const rowHeight = ({ tree }) => (tree ? 26 : 54);
 
-// 與 Party [n] 嚴格對稱的計數扣：直角、1px 邊、#07090d 實底、等寬字。
+// 与 Party [n] 严格对称的计数扣：直角、1px 边、#07090d 实底、等宽字。
 const countChip = (n, t, size = 10) =>
   h_flex()
     .flex_none()
@@ -64,7 +64,7 @@ const countChip = (n, t, size = 10) =>
     .text_color(t.accent)
     .child(`[${n}]`);
 
-// 像素角釘：右下/右上各一块 2x2。
+// 像素角钉：右下/右上各一块 2x2。
 const cornerNails = (color) => [
   div().absolute().right(1).top(1).size(2).bg(color),
   div().absolute().right(1).bottom(1).size(2).bg(color),
@@ -314,7 +314,7 @@ export default class Spaces extends View {
       const connected = !m || machine?.state === "connected";
       const folded = this.folded.has(m);
       const showChildren = !folded && !collapsed;
-      // 196px 以下收起每台机器的 + 按鈕，讓機器名完整；空態行的 + New space there 仍在。
+      // 196px 以下收起每台机器的 + 按钮，让机器名完整；空态行的 + New space there 仍在。
       const tightHead = this.blockW > 0 && this.blockW < 230;
       const head = h_flex()
         .id(`machine-${m ?? "local"}`)
@@ -464,7 +464,7 @@ export default class Spaces extends View {
       .id(`space-${w.id}`)
       .px(tree ? 8 : 6)
       .h(h)
-      // 群組內吃滿剩餘寬度（舊版先 flex_1 又被 flex_none 蓋掉，卡片只跟內容一樣寬）。
+      // 群组内吃满剩余宽度（旧版先 flex_1 又被 flex_none 盖掉，卡片只跟内容一样宽）。
       .when(inGroup, (el) => el.flex_1().min_w(0))
       .when(!inGroup, (el) => el.flex_none())
       .justify_center()
@@ -588,7 +588,7 @@ export default class Spaces extends View {
     if (changed) setShared("space.colors", kept);
     return v_flex().size_full().min_h(0).text_size(13)
       .on_size_change((size, cx) => {
-        // on_size_change 回報縮放後像素，除以 zoom 才是 layout px。
+        // on_size_change 回报缩放后像素，除以 zoom 才是 layout px。
         const z = settings()?.zoom;
         const zoom = typeof z === "number" && z > 0 ? z : 1;
         const next = size.width / zoom;

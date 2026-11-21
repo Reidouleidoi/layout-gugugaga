@@ -7,7 +7,7 @@ import { assignJobs, jobIn, portraitPath, resolveAppInfo, setGugugagaPools, spri
 const JOBS_FILE = `${appHome()}/mods/gugugaga-agents/jobs.json`;
 const MONO_FONT = "Cascadia Mono";
 const STATUS_LABELS = { working: "WORKING", blocked: "NEEDS YOU", done: "DONE", idle: "IDLE" };
-// 與 gugugaga-agents 的 STATUS_SKIN 同一套配色（深底 + 狀態色細框）。
+// 与 gugugaga-agents 的 STATUS_SKIN 同一套配色（深底 + 状态色细框）。
 const STATUS_SKIN = {
   working: { bg: "#0e2238fa", border: "#8ccaffdd", text: "#d8eeff" },
   blocked: { bg: "#241708f8", border: "#ffb547ee", text: "#ffd080" },
@@ -82,7 +82,7 @@ export default class Tabs extends View {
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
   }
 
-  // 動態掃描 art/gugugaga 與 sprites/gugugaga/{r,w,b}，手動增刪檔案時自動同步清單。
+  // 动态扫描 art/gugugaga 与 sprites/gugugaga/{r,w,b}，手动增删文件时自动同步清单。
   loadPools(cx) {
     const home = appHome();
     const scan = async (relDir, exts) => {
@@ -192,7 +192,7 @@ export default class Tabs extends View {
       const isAgent = Boolean(tabAgent || program?.agent || c.status);
       const appInfo = isAgent ? resolveAppInfo({ app: tabAgent?.app ?? tabPane?.app, program }) : null;
       const status = c.status ?? tabAgent?.status ?? (isAgent ? "idle" : null);
-      // Tab 欄優先用靜態頭像 (a/)，以 tab id 快取，沒有才退回 sprites。
+      // Tab 栏优先用静态头像 (a/)，以 tab id 缓存，没有才退回 sprites。
       const portrait = portraitPath(job, c.id);
       const sprite = portrait ? null : spritePath(job, status, c.id);
       const borderColor = status === "blocked" ? t.blocked : c.active ? t.accent : "#232a36";

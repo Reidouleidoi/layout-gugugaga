@@ -59,7 +59,7 @@ function splitColumns(text, cols) {
 
 const WRAP_KEY = "gugugaga-files/wrap";
 const LEGACY_WRAP_KEY = "files-and-changes-addon/wrap";
-// 首次讀不到新 key 時回落讀舊 key，老使用者的開關狀態不會丟。
+// 首次读不到新 key 时回落读旧 key，老用户的开关状态不会丢。
 const wrapPref = () => {
   try { return (localStorage.getItem(WRAP_KEY) ?? localStorage.getItem(LEGACY_WRAP_KEY)) !== "false"; } catch { return true; }
 };
@@ -321,7 +321,7 @@ export default class Changes extends View {
         .child(Scrollbar.vertical("changes-list").absolute().inset_0()))
       .when(this.limited, (el) => el.child(div().px(12).py(4).text_size(11).text_color(t.dim).child("Showing the first 1,000 changed files")))
       .child(div().id("changes-diff-area").flex_1().min_h(0).relative().bg("#07090d").font_family(settings().font_family ?? "JetBrains Mono").text_size(11)
-        // on_size_change 回報縮放後像素：除以 zoom 才是折行要用的實際欄寬。
+        // on_size_change 回报缩放后像素：除以 zoom 才是折行要用的实际栏宽。
         .on_size_change((size, cx) => this.measure(size.width / ZOOM(), cx))
         .child(div().id("changes-diff-x").size_full().overflow_x_scrollbar()
           .child(div().w_full().min_w(this.wrap ? 0 : this.diffWidth).h_full().child(v_virtual_list("changes-diff", this.wrapped.length, this.wrapped.map((row) => LINE * (row.chunks?.length ?? 1)), (i) => String(i),
